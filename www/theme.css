@@ -1,0 +1,25 @@
+.nav-pills {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+.col-sm-6 {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+.col-sm-7 {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+.col-sm-8 {
+  height: 85vh;
+  overflow-y: auto;
+}
+.alignleft {
+	float: left;
+}
+.alignright {
+	float: right;
+}
