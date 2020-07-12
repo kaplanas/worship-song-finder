@@ -6,414 +6,410 @@
 none.selected.string = "[None selected]"
 
 # Topics
-topicList = topics.tab %>%
-  arrange(TopicName)
+topic.list = topics.df %>%
+  arrange(topic.name)
 
 # Books of the Bible
-booksofthebible.tab = arrange(booksofthebible.tab, BookID)
-bookList = c(0, booksofthebible.tab$BookID[is.element(booksofthebible.tab$BookID, scripturereferences.tab$BookID)])
-names(bookList) = c(none.selected.string, booksofthebible.tab$BookName[is.element(booksofthebible.tab$BookID, scripturereferences.tab$BookID)])
-bookList = as.list(bookList)
+book.list = c(0,
+              scripture.references.df %>%
+                dplyr::select(book.id) %>%
+                distinct() %>%
+                inner_join(bible.books.df, by = c("book.id")) %>%
+                pull(book.id))
+names(book.list) = c(none.selected.string,
+                     bible.books.df$book.name[book.list[-1]])
+book.list = as.list(book.list)
 
 # Songbooks
-songbookList = songbooks.tab %>%
-  arrange(SongbookName) %>%
-  select(SongbookID, SongbookName)
+songbook.list = songbooks.df %>%
+  arrange(songbook.name) %>%
+  select(songbook.id, songbook.name)
 
 # Arrangement types
-arrangementList = arrangementtypes.tab %>%
-  arrange(ArrangementType)
+arrangement.list = arrangement.types.df %>%
+  arrange(arrangement.type)
 
 # Languages
-languageList = languages.tab %>%
-  arrange(LanguageName)
+language.list = languages.df %>%
+  arrange(language.name)
 
 # Key signatures
-keySignatureList = inner_join(keysignatures.tab, pitches.tab) %>%
-  inner_join(accidentals.tab) %>%
-  inner_join(modes.tab) %>%
-  mutate(PrettyKeySignatureLabel = paste(PitchName,
-                                         ifelse(AccidentalID == 3, "", AccidentalSymbol),
-                                         ifelse(ModeID == 1, "", ifelse(ModeID == 2, "m", paste(" ", ModeName, sep = ""))), sep = "")) %>%
-  arrange(PitchName, ifelse(AccidentalID == 3, 0, AccidentalID), ModeID) %>%
-  select(KeySignatureID, PrettyKeySignatureLabel)
+key.signature.list = key.signatures.df %>%
+  arrange(pitch.name, ifelse(accidental.id == 3, 0, accidental.id), mode.id) %>%
+  select(key.signature.id, key.signature.string)
 
 # Time signatures
-timeSignatureList = timesignatures.tab %>%
-  mutate(PrettyTimeSignatureLabel = paste(TimeSignatureBeat, "/", TimeSignatureMeasure, sep = "")) %>%
-  arrange(TimeSignatureBeat, TimeSignatureMeasure) %>%
-  select(TimeSignatureID, PrettyTimeSignatureLabel)
+time.signature.list = time.signatures.df %>%
+  arrange(time.signature.measure, time.signature.beat) %>%
+  select(time.signature.id, time.signature.string)
 
 # Meters
-meterList = inner_join(songinstances.tab, songinstances.lyrics.tab) %>%
-  inner_join(lyrics.meters.tab) %>%
-  inner_join(songinstances.tunes.tab) %>%
-  inner_join(tunes.meters.tab, by = "TuneID") %>%
-  select(SongID, MeterID.x, MeterID.y) %>%
-  gather(MeterSource, MeterID, -SongID) %>%
-  select(SongID, MeterID) %>%
-  group_by(MeterID) %>%
-  summarize(NumSongs = n()) %>%
-  filter(NumSongs >= 3 & MeterID != 1) %>%
-  inner_join(meters.tab) %>%
-  mutate(MeterForSort = sapply(Meter, function(x) { paste(paste(str_pad(unlist(strsplit(gsub(" D$", "", x), "[. ]")), 2, side = "left", pad = "0"), collapse = ""), ifelse(endsWith(x, " D"), " D", ""), sep = "") })) %>%
-  arrange(MeterForSort) %>%
-  select(MeterID, Meter)
+meter.list = meters.df %>%
+  left_join(lyrics.meters.df, by = c("meter.id")) %>%
+  left_join(song.instances.lyrics.df, by = c("lyrics.id")) %>%
+  left_join(song.instances.df, by = c("song.instance.id")) %>%
+  left_join(tunes.meters.df, by = c("meter.id")) %>%
+  left_join(song.instances.tunes.df, by = c("tune.id")) %>%
+  left_join(song.instances.df,
+            by = c("song.instance.id.x" = "song.instance.id")) %>%
+  filter(is.na(song.id.x) | is.na(song.id.y)) %>%
+  dplyr::select(meter.id, song.id.x, song.id.y) %>%
+  gather(song.source, song.id, -meter.id) %>%
+  select(meter.id, song.id) %>%
+  group_by(meter.id) %>%
+  summarize(num.songs = n()) %>%
+  filter(num.songs >= 3,
+         meter.id != 1) %>%
+  inner_join(meters.df, by = c("meter.id")) %>%
+  mutate(meter.for.sort = sapply(meter,
+                                 function(x) {
+                                   paste(paste(str_pad(unlist(strsplit(gsub(" D$",
+                                                                            "",
+                                                                            x),
+                                                                       "[. ]")),
+                                                       2,
+                                                       side = "left",
+                                                       pad = "0"),
+                                               collapse = ""),
+                                         ifelse(endsWith(x, " D"), " D", ""),
+                                         sep = "") })) %>%
+  arrange(meter.for.sort) %>%
+  select(meter.id, meter)
 
 # Worship slots
-worshipSlotList = worshipslots.tab %>%
-  arrange(WorshipSlotOrder) %>%
-  filter(!is.element(WorshipSlotID, c(4, 5))) %>%
-  select(WorshipSlotID, WorshipSlot)
+worship.slot.list = worship.slots.df %>%
+  arrange(worship.slot.order) %>%
+  filter(!is.element(worship.slot.id, c(4, 5))) %>%
+  select(worship.slot.id, worship.slot)
 
 ########################
 # Create filter panels #
 ########################
 
 # Song title filter
-songTitleFilter = tabPanel("Song title",
-                           div(id = "songTitleFilter",
-                               radioButtons("songTitleOptions", NA,
-                                            choices = c("Parts", "Whole words", "String")),
-                               textInput("songTitle", NA))
-                          )
-
-# Artist name filter
-artistNameFilter = tabPanel("Artist name",
-                            radioButtons("artistNameOptions", NA,
-                                         choices = c("Lyrics", "Music", "Arrangement", "Any")),
-                            textInput("artistName", NA)
-)
-
-# Topic filter
-topicFilter = tabPanel("Topic",
-                       radioButtons("topicOptions", NA,
-                                    choices = c("Match any", "Match all")),
-                       checkboxGroupInput("topicChoices", NA,
-                                          choiceNames = topicList$TopicName,
-                                          choiceValues = topicList$TopicID)
-                      )
-
-# Scripture reference filter
-scriptureReferenceFilter = tabPanel("Scripture reference",
-                                    radioButtons("scriptureOptions", NA,
-                                                 choices = c("Single verse", "Range")),
-                                    selectInput("scriptureBook", "Book:",
-                                                choices = bookList),
-                                    selectInput("scriptureChapterStart", "Chapter:", c()),
-                                    selectInput("scriptureVerseStart", "Verse:", c()),
-                                    selectInput("scriptureChapterEnd", "Ending chapter:", c()),
-                                    selectInput("scriptureVerseEnd", "Ending verse:", c())
-                                   )
-
-# Language filter
-languageFilter = tabPanel("Language",
-                          radioButtons("languageOptions", NA,
-                                       choices = c("Match any", "Match all")),
-                          checkboxGroupInput("languageChoices", NA,
-                                             choiceNames = languageList$LanguageName,
-                                             choiceValues = languageList$LanguageID)
-                         )
-
-# Songbook filter
-songbookFilter= tabPanel("Songbook",
-                         radioButtons("songbookOptions", NA,
-                                      choices = c("Match any", "Match all")),
-                         checkboxGroupInput("songbookChoices", NA,
-                                            choiceNames = songbookList$SongbookName,
-                                            choiceValues = songbookList$SongbookID)
-                        )
-
-# Arrangement type filter
-arrangementTypeFilter = tabPanel("Arrangement type",
-                                 radioButtons("arrangementOptions", NA,
-                                              choices = c("Include", "Exclude")),
-                                 checkboxGroupInput("arrangementChoices", NA,
-                                                    choiceNames = arrangementList$ArrangementType,
-                                                    choiceValues = arrangementList$ArrangementTypeID)
-                                )
-
-# Key signature filter
-keySignatureFilter = tabPanel("Key signature",
-                              radioButtons("keyOptions", NA,
-                                           choices = c("Match any", "Match all")),
-                              checkboxGroupInput("keyChoices", NA,
-                                                 choiceNames = keySignatureList$PrettyKeySignatureLabel,
-                                                 choiceValues = keySignatureList$KeySignatureID)
+song.title.filter = tabPanel("Song title",
+                             div(id = "songTitleFilter",
+                                 radioButtons("songTitleOptions", NA,
+                                              choices = c("Parts", "Whole words", "String")),
+                                 textInput("songTitle", NA))
                              )
 
-# Time signature filter
-timeSignatureFilter = tabPanel("Time signature",
-                               radioButtons("timeOptions", NA,
-                                            choices = c("Match any", "Match all")),
-                               checkboxGroupInput("timeChoices", NA,
-                                                  choiceNames = timeSignatureList$PrettyTimeSignatureLabel,
-                                                  choiceValues = timeSignatureList$TimeSignatureID)
+# Artist name filter
+artist.name.filter = tabPanel("Artist name",
+                              radioButtons("artistNameOptions", NA,
+                                           choices = c("Lyrics", "Music", "Arrangement", "Any")),
+                              textInput("artistName", NA)
                               )
 
-# Meter filter
-meterFilter = tabPanel("Meter",
-                       radioButtons("meterOptions", NA,
-                                    choices = c("Match any", "Match all")),
-                       checkboxGroupInput("meterChoices", NA,
-                                          choiceNames = meterList$Meter,
-                                          choiceValues = meterList$MeterID)
-                      )
-
-# Recency filter
-recencyFilter = tabPanel("Not sung recently",
-                         checkboxInput("filterByDate",
-                                       "Omit songs sung since..."),
-                         dateInput("notSungSinceDate", NA,
-                                   format = dateInputFormat,
-                                   min = dateInputMin)
+# Topic filter
+topic.filter = tabPanel("Topic",
+                        radioButtons("topicOptions", NA,
+                                     choices = c("Match any", "Match all")),
+                        checkboxGroupInput("topicChoices", NA,
+                                           choiceNames = topic.list$topic.name,
+                                           choiceValues = topic.list$topic.id)
                         )
 
-# Request filter
-requestFilter = tabPanel("Survey and requests",
-                         checkboxGroupInput("requestChoices",
-                                            "Filter to songs that...",
-                                            choiceNames = c("were on the survey", "have been specially requested"),
-                                            choiceValues = c("survey", "request")))
+# Scripture reference filter
+scripture.reference.filter = tabPanel("Scripture reference",
+                                      radioButtons("scriptureOptions", NA,
+                                                   choices = c("Single verse", "Range")),
+                                      selectInput("scriptureBook", "Book:",
+                                                  choices = book.list),
+                                      selectInput("scriptureChapterStart", "Chapter:", c()),
+                                      selectInput("scriptureVerseStart", "Verse:", c()),
+                                      selectInput("scriptureChapterEnd", "Ending chapter:", c()),
+                                      selectInput("scriptureVerseEnd", "Ending verse:", c())
+                                      )
+
+# Language filter
+language.filter = tabPanel("Language",
+                           radioButtons("languageOptions", NA,
+                                        choices = c("Match any", "Match all")),
+                           checkboxGroupInput("languageChoices", NA,
+                                              choiceNames = language.list$language.name,
+                                              choiceValues = language.list$language.id)
+                           )
+
+# Songbook filter
+songbook.filter= tabPanel("Songbook",
+                          radioButtons("songbookOptions", NA,
+                                       choices = c("Match any", "Match all")),
+                          checkboxGroupInput("songbookChoices", NA,
+                                             choiceNames = songbook.list$songbook.name,
+                                             choiceValues = songbook.list$songbook.id)
+                          )
+
+# Arrangement type filter
+arrangement.type.filter = tabPanel("Arrangement type",
+                                   radioButtons("arrangementOptions", NA,
+                                                choices = c("Include", "Exclude")),
+                                   checkboxGroupInput("arrangementChoices", NA,
+                                                      choiceNames = arrangement.list$arrangement.type,
+                                                      choiceValues = arrangement.list$arrangement.type.id)
+                                   )
+
+# Key signature filter
+key.signature.filter = tabPanel("Key signature",
+                                radioButtons("keyOptions", NA,
+                                             choices = c("Match any", "Match all")),
+                                checkboxGroupInput("keyChoices", NA,
+                                                   choiceNames = key.signature.list$key.signature.string,
+                                                   choiceValues = key.signature.list$key.signature.id)
+                                )
+
+# Time signature filter
+time.signature.filter = tabPanel("Time signature",
+                                 radioButtons("timeOptions", NA,
+                                              choices = c("Match any", "Match all")),
+                                 checkboxGroupInput("timeChoices", NA,
+                                                    choiceNames = time.signature.list$time.signature.string,
+                                                    choiceValues = time.signature.list$time.signature.id)
+                                 )
+
+# Meter filter
+meter.filter = tabPanel("Meter",
+                        radioButtons("meterOptions", NA,
+                                     choices = c("Match any", "Match all")),
+                        checkboxGroupInput("meterChoices", NA,
+                                           choiceNames = meter.list$meter,
+                                           choiceValues = meter.list$meter.id)
+)
 
 #############################
 # Create other input panels #
 #############################
 
 # Recent songs panel
-recentSongsPanel = tabPanel("Recent songs",
-                            dateRangeInput("recentSongsDateRange",
-                                           "Date range:",
-                                           separator = dateInputSep,
-                                           format = dateInputFormat,
-                                           min = dateInputMin,
-                                           start = dateInputStart),
-                            tableOutput("recentSongList")
-                           )
+recent.songs.panel = tabPanel("Recent songs",
+                              dateRangeInput("recentSongsDateRange",
+                                             "Date range:",
+                                             separator = date.input.sep,
+                                             format = date.input.format,
+                                             min = date.input.min,
+                                             start = date.input.start),
+                              tableOutput("recentSongList")
+                              )
 
 # Frequent songs panel
-frequentSongsPanel = tabPanel("Frequent songs",
-                              fluidRow(column(5,
-                                              dateRangeInput("frequentSongsDateRange",
-                                                             "Date range:",
-                                                             separator = dateInputSep,
-                                                             format = dateInputFormat,
-                                                             min = dateInputMin,
-                                                             start = dateInputStart)),
-                                       column(5,
-                                              numericInput("frequentSongsCutoff",
-                                                           "Songs sung at least this many times:",
-                                                           value = 2,
-                                                           min = 1))),
-                              tableOutput("frequentSongList")
-                             )
+frequent.songs.panel = tabPanel("Frequent songs",
+                                fluidRow(column(5,
+                                                dateRangeInput("frequentSongsDateRange",
+                                                               "Date range:",
+                                                               separator = date.input.sep,
+                                                               format = date.input.format,
+                                                               min = date.input.min,
+                                                               start = date.input.start)),
+                                         column(5,
+                                                numericInput("frequentSongsCutoff",
+                                                             "Songs sung at least this many times:",
+                                                             value = 2,
+                                                             min = 1))),
+                                tableOutput("frequentSongList")
+                                )
 
 # Frequent topics panel
-frequentTopicsPanel = tabPanel("Frequent topics",
-                               fluidRow(column(5,
-                                               dateRangeInput("recentTopicsDateRange",
-                                                              "Date range:",
-                                                              separator = dateInputSep,
-                                                              format = dateInputFormat,
-                                                              min = dateInputMin,
-                                                              start = dateInputStart)),
-                                        column(5,
-                                               pickerInput("recentTopicSlots",
-                                                           "Separate by position in service:",
-                                                           multiple = T,
-                                                           options = list(`actions-box` = TRUE),
-                                                           choices = worshipSlotList$WorshipSlot))),
-                               plotOutput("frequentTopicPlot",
-                                          height = "1000px")
-                              )
+frequent.topics.panel = tabPanel("Frequent topics",
+                                 fluidRow(column(5,
+                                                 dateRangeInput("recentTopicsDateRange",
+                                                                "Date range:",
+                                                                separator = date.input.sep,
+                                                                format = date.input.format,
+                                                                min = date.input.min,
+                                                                start = date.input.start)),
+                                          column(5,
+                                                 pickerInput("recentTopicSlots",
+                                                             "Separate by position in service:",
+                                                             multiple = T,
+                                                             options = list(`actions-box` = TRUE),
+                                                             choices = worship.slot.list$worship.slot))),
+                                 plotOutput("frequentTopicPlot",
+                                            height = "1000px")
+                                 )
 
 # Songs by year panel
-songsByYearPanel = tabPanel("Songs by year",
-                            dateRangeInput("songYearDateRange",
-                                           "Date range:",
-                                           separator = dateInputSep,
-                                           format = dateInputFormat,
-                                           min = dateInputMin,
-                                           start = dateInputStart),
-                            plotOutput("songsByYear")
-                           )
+songs.by.year.panel = tabPanel("Songs by year",
+                               dateRangeInput("songYearDateRange",
+                                              "Date range:",
+                                              separator = date.input.sep,
+                                              format = date.input.format,
+                                              min = date.input.min,
+                                              start = date.input.start),
+                               plotOutput("songsByYear")
+                               )
 
 # Songbook comparison panel
-songbookComparisonPanel = tabPanel("Songbook comparison",
-                                   pickerInput("songbooksToAnalyze",
-                                               "Select one or more songbooks:",
-                                               multiple = T,
-                                               options = list(`actions-box` = TRUE),
-                                               width = "100%",
-                                               choices = songbookList$SongbookName),
-                                   tabsetPanel(
-                                     tabPanel("Song year",
-                                              radioButtons("songbookYearOptions",
-                                                           "Plot type:",
-                                                           inline = T,
-                                                           choices = c("Histogram (raw counts)", "Density (smoothed proportions)")),
-                                              plotOutput("yearBySongbook")),
-                                     tabPanel("Topic",
-                                              radioButtons("songbookTopicOptions",
-                                                           "Sort by:",
-                                                           inline = T,
-                                                           choices = c("Number of songs", "Topic", "Relative number of songs")),
-                                              helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs on that topic, ", tags$i("relative to the other songbooks you selected."))),
-                                              plotOutput("topicBySongbook",
-                                                         height = "1000px")),
-                                     tabPanel("Arrangement type",
-                                              radioButtons("songbookArrangementTypeOptions",
-                                                           "Sort by:",
-                                                           inline = T,
-                                                           choices = c("Number of songs", "Arrangement type", "Relative number of songs")),
-                                              helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs of that arrangement type, ", tags$i("relative to the other songbooks you selected."))),
-                                              plotOutput("arrangementTypeBySongbook")
+songbook.comparison.panel = tabPanel("Songbook comparison",
+                                     pickerInput("songbooksToAnalyze",
+                                                 "Select one or more songbooks:",
+                                                 multiple = T,
+                                                 options = list(`actions-box` = TRUE),
+                                                 width = "100%",
+                                                 choices = songbook.list$songbook.name),
+                                     tabsetPanel(
+                                       tabPanel("Song year",
+                                                radioButtons("songbookYearOptions",
+                                                             "Plot type:",
+                                                             inline = T,
+                                                             choices = c("Histogram (raw counts)", "Density (smoothed proportions)")),
+                                                plotOutput("yearBySongbook")),
+                                       tabPanel("Topic",
+                                                radioButtons("songbookTopicOptions",
+                                                             "Sort by:",
+                                                             inline = T,
+                                                             choices = c("Number of songs", "Topic", "Relative number of songs")),
+                                                helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs on that topic, ", tags$i("relative to the other songbooks you selected."))),
+                                                plotOutput("topicBySongbook",
+                                                           height = "1000px")),
+                                       tabPanel("Arrangement type",
+                                                radioButtons("songbookArrangementTypeOptions",
+                                                             "Sort by:",
+                                                             inline = T,
+                                                             choices = c("Number of songs", "Arrangement type", "Relative number of songs")),
+                                                helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs of that arrangement type, ", tags$i("relative to the other songbooks you selected."))),
+                                                plotOutput("arrangementTypeBySongbook")
+                                       )
                                      )
-                                   )
-                                  )
+                                     )
 
 # Change over time panel
-changeOverTimePanel = tabPanel("Change over time",
-                               tabsetPanel(
-                                 tabPanel("Topics",
-                                          pickerInput("topicsOverTimeTopics",
-                                                      "Select one or more topics:",
-                                                      multiple = T,
-                                                      options = list(`actions-box` = TRUE),
-                                                      width = "100%",
-                                                      choices = topicList$TopicName),
-                                          plotOutput("topicsOverTime",
-                                                     height = "600px")),
-                                 tabPanel("Scripture references",
-                                          pickerInput("scriptureReferencesOverTimeBooks",
-                                                      "Select one or more books of the Bible:",
-                                                      multiple = T,
-                                                      options = list(`actions-box` = TRUE),
-                                                      width = "100%",
-                                                      choices = names(bookList)[names(bookList) != none.selected.string]),
-                                          plotOutput("scriptureReferencesOverTime",
-                                                     height = "600px")),
-                                 tabPanel("Gender",
-                                          pickerInput("genderOverTimeRoles",
-                                                      "Select one or more artist roles:",
-                                                      multiple = T,
-                                                      options = list(`actions-box` = TRUE),
-                                                      width = "100%",
-                                                      choices = c("Lyrics", "Music", "Arrangement")),
-                                          plotOutput("genderOverTime",
-                                                     height = "600px"))
-                               )
-                              )
+change.over.time.panel = tabPanel("Change over time",
+                                  tabsetPanel(
+                                    tabPanel("Topics",
+                                             pickerInput("topicsOverTimeTopics",
+                                                         "Select one or more topics:",
+                                                         multiple = T,
+                                                         options = list(`actions-box` = TRUE),
+                                                         width = "100%",
+                                                         choices = topic.list$topic.name),
+                                             plotOutput("topicsOverTime",
+                                                        height = "600px")),
+                                    tabPanel("Scripture references",
+                                             pickerInput("scriptureReferencesOverTimeBooks",
+                                                         "Select one or more books of the Bible:",
+                                                         multiple = T,
+                                                         options = list(`actions-box` = TRUE),
+                                                         width = "100%",
+                                                         choices = names(book.list)[names(book.list) != none.selected.string]),
+                                             plotOutput("scriptureReferencesOverTime",
+                                                        height = "600px")),
+                                    tabPanel("Gender",
+                                             pickerInput("genderOverTimeRoles",
+                                                         "Select one or more artist roles:",
+                                                         multiple = T,
+                                                         options = list(`actions-box` = TRUE),
+                                                         width = "100%",
+                                                         choices = c("Lyrics", "Music", "Arrangement")),
+                                             plotOutput("genderOverTime",
+                                                        height = "600px"))
+                                  )
+                                  )
 
 ########################
 # Create output panels #
 ########################
 
 # Get titles for content panels for all songs
-allSongPanelTitles = lapply(
-  allSongInfo$SongID,
+all.song.panel.titles = lapply(
+  song.info.df$song.id,
   function(songID) {
-    mainTitle = allSongInfo$Title[allSongInfo$SongID == songID]
-    otherTitles = sort(unique(allSongInstanceInfo$Title[allSongInstanceInfo$SongID == songID &
-                                                          !startsWith(mainTitle, allSongInstanceInfo$Title)]))
-    tags$span(mainTitle,
-         lapply(otherTitles,
+    main.title = song.info.df$title[song.info.df$song.id == songID]
+    other.titles = sort(unique(song.instance.info.df$title[song.instance.info.df$song.id == songID &
+                                                           !startsWith(main.title, song.instance.info.df$title)]))
+    tags$span(main.title,
+         lapply(other.titles,
                 function(otherTitle) {
                   list(br(), tags$i(otherTitle))
                 }), display = "flex", justify = "space-between")
   }
 )
-names(allSongPanelTitles) = as.character(allSongInfo$SongID)
+names(all.song.panel.titles) = as.character(song.info.df$song.id)
 
 # Get content panels for all songs
-allSongPanels = lapply(
-  allSongInfo$SongID,
+all.song.panels = lapply(
+  song.info.df$song.id,
   function(songID) {
-    songRow = allSongInfo[allSongInfo$SongID == songID,]
+    song.row = song.info.df[song.info.df$song.id == songID,]
     # Song title
-    songTitle = h1(songRow$Title)
-    initialSongInfoToReturn = list(songTitle)
+    song.title = h1(song.row$title)
+    initial.song.info.to.return = list(song.title)
     # Song topics
-    if(!is.na(songRow$Topics)) {
-      songTopics = p(songRow$Topics)
-      initialSongInfoToReturn[[length(initialSongInfoToReturn) + 1]] = songTopics
+    if(!is.na(song.row$topics)) {
+      song.topics = p(song.row$topics)
+      initial.song.info.to.return[[length(initial.song.info.to.return) + 1]] = song.topics
     }
-    songInfoToReturn = c(initialSongInfoToReturn, lapply(
-      allSongInstanceInfo$SongInstanceID[allSongInstanceInfo$SongID == songID],
+    song.info.to.return = c(initial.song.info.to.return, lapply(
+      song.instance.info.df$song.instance.id[song.instance.info.df$song.id == songID],
       function(songInstanceID) {
-        songInstanceRow = allSongInstanceInfo[allSongInstanceInfo$SongInstanceID == songInstanceID,]
+        song.instance.row = song.instance.info.df[song.instance.info.df$song.instance.id == songInstanceID,]
         # Song instance title
-        panelListToReturn = list(hr(), h3(songInstanceRow$Title))
+        panel.list.to.return = list(hr(), h3(song.instance.row$title))
         # Song instance songbook entries
-        if(!is.na(songInstanceRow$SongbookEntries)) {
-          songbookEntries = p(songInstanceRow$SongbookEntries)
-          panelListToReturn[[length(panelListToReturn) + 1]] = songbookEntries
+        if(!is.na(song.instance.row$songbook.entries)) {
+          songbook.entries = p(song.instance.row$songbook.entries)
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = songbook.entries
         }
         # Song instance arrangement types
-        if(!is.na(songInstanceRow$ArrangementTypes)) {
-          arrangementTypes = p(songInstanceRow$ArrangementTypes)
-          panelListToReturn[[length(panelListToReturn) + 1]] = arrangementTypes
+        if(!is.na(song.instance.row$arrangement.types)) {
+          arrangement.types = p(song.instance.row$arrangement.types)
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = arrangement.types
         }
         # Song instance key and time signatures
-        if(!is.na(songInstanceRow$KeySignatures) | !is.na(songInstanceRow$TimeSignatures)) {
-          keyTimeSignatures = p(paste(songInstanceRow$KeySignatures,
-                                      ifelse(!is.na(songInstanceRow$KeySignatures) & !is.na(songInstanceRow$TimeSignatures), "; ", ""),
-                                      songInstanceRow$TimeSignatures, sep = ""))
-          panelListToReturn[[length(panelListToReturn) + 1]] = keyTimeSignatures
+        if(!is.na(song.instance.row$key.signatures) | !is.na(song.instance.row$time.signatures)) {
+          key.time.signatures = p(paste(song.instance.row$key.signatures,
+                                        ifelse(!is.na(song.instance.row$key.signatures) & !is.na(song.instance.row$time.signatures), "; ", ""),
+                                        song.instance.row$time.signatures, sep = ""))
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = key.time.signatures
         }
         # Song instance scripture references
-        if(!is.na(songInstanceRow$ScriptureReferences)) {
-          scriptureReferences = p(songInstanceRow$ScriptureReferences)
-          panelListToReturn[[length(panelListToReturn) + 1]] = scriptureReferences
+        if(!is.na(song.instance.row$scripture.references)) {
+          scripture.references = p(song.instance.row$scripture.references)
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = scripture.references
         }
         # Song instance lyricists and composers
-        if(!is.na(songInstanceRow$Lyricists) & !is.na(songInstanceRow$Composers) & songInstanceRow$Lyricists == songInstanceRow$Composers) {
-          panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Lyrics & Music:", songInstanceRow$Lyricists))
+        if(!is.na(song.instance.row$lyricists) & !is.na(song.instance.row$composers) & song.instance.row$lyricists == song.instance.row$composers) {
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Lyrics & Music:", song.instance.row$lyricists))
         }
         else {
-          if(!is.na(songInstanceRow$Lyricists)) {
-            panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Lyrics:", songInstanceRow$Lyricists))
+          if(!is.na(song.instance.row$lyricists)) {
+            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Lyrics:", song.instance.row$lyricists))
           }
-          if(!is.na(songInstanceRow$Composers)) {
-            panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Music:", songInstanceRow$Composers))
+          if(!is.na(song.instance.row$composers)) {
+            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Music:", song.instance.row$composers))
           }
         }
         # Song instance arrangers
-        if(!is.na(songInstanceRow$Arrangers)) {
-          panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Arrangement:", songInstanceRow$Arrangers))
+        if(!is.na(song.instance.row$arrangers)) {
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Arrangement:", song.instance.row$arrangers))
         }
         # Song instance copyright info
-        if(!is.na(songInstanceRow$LyricsCopyright) & !is.na(songInstanceRow$TuneCopyright) & songInstanceRow$LyricsCopyright == songInstanceRow$TuneCopyright) {
-          panelListToReturn[[length(panelListToReturn) + 1]] = p(songInstanceRow$LyricsCopyright)
+        if(!is.na(song.instance.row$lyrics.copyright) & !is.na(song.instance.row$tune.copyright) & song.instance.row$lyrics.copyright == song.instance.row$tune.copyright) {
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(song.instance.row$lyrics.copyright)
         }
         else {
-          if(!is.na(songInstanceRow$LyricsCopyright)) {
-            panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Lyrics", songInstanceRow$LyricsCopyright))
+          if(!is.na(song.instance.row$lyrics.copyright)) {
+            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Lyrics", song.instance.row$lyrics.copyright))
           }
-          if(!is.na(songInstanceRow$TuneCopyright)) {
-            panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Music", songInstanceRow$TuneCopyright))
+          if(!is.na(song.instance.row$tune.copyright)) {
+            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Music", song.instance.row$tune.copyright))
           }
         }
-        if(!is.na(songInstanceRow$ArrangementCopyright)) {
-          panelListToReturn[[length(panelListToReturn) + 1]] = p(paste("Arrangement", songInstanceRow$ArrangementCopyright))
+        if(!is.na(song.instance.row$arrangement.copyright)) {
+          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Arrangement", song.instance.row$arrangement.copyright))
         }
         # Song instances lyrics first lines
-        songInstanceLyrics = allSongInstanceLyrics$LyricsLine[allSongInstanceLyrics$SongInstanceID == songInstanceID &
-                                                              !is.na(allSongInstanceLyrics$LyricsLine)]
-        # if(length(songInstanceLyrics) > 0 & nrow(inner_join(songinstances.lyrics.tab, lyrics.copyrightholders.tab) %>% filter(SongInstanceID == songInstanceID & CopyrightHolderID == 1)) > 0) {
-          # panelListToReturn[[length(panelListToReturn) + 1]] = tags$a("Show full lyrics", id = "showFullLyrics", href = "#")
-          # panelListToReturn[[length(panelListToReturn) + 1]] = br()
-        # }
-        panelListToReturn = list(panelListToReturn,
-                                 span(lapply(songInstanceLyrics,
-                                             function(lyricsLine) {
-                                               list(tags$i(lyricsLine), br())
-                                             })))
+        song.instance.lyrics = all.song.instance.lyrics.df$lyrics.line[all.song.instance.lyrics.df$song.instance.id == songInstanceID &
+                                                                       !is.na(all.song.instance.lyrics.df$lyrics.line)]
+        panel.list.to.return = list(panel.list.to.return,
+                                    span(lapply(song.instance.lyrics,
+                                                function(lyricsLine) {
+                                                  list(tags$i(lyricsLine), br())
+                                                })))
         # Return new content panel
-        return(panelListToReturn)
+        return(panel.list.to.return)
       }
     ))
-    return(songInfoToReturn)
+    return(song.info.to.return)
   }
 )
-names(allSongPanels) = as.character(allSongInfo$SongID)
+names(all.song.panels) = as.character(song.info.df$song.id)

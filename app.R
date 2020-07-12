@@ -10,26 +10,25 @@ library(stringr)
 library(stringi)
 library(gridExtra)
 library(binom)
-# library(quanteda)
-# library(readtext)
 
 source("database_connection_local.R", local = T)
 #source("database_connection.R", local = T)
 
 # Connect to the database
-wsf_con = dbConnect(MySQL(), user = db.user, password = db.password, dbname = db.name, host = db.host)
-on.exit(dbDisconnect(wsf_con), add = TRUE)
-dbGetQuery(wsf_con, "SET NAMES utf8")
+wsf.con = dbConnect(MySQL(), user = db.user, password = db.password,
+                    dbname = db.name, host = db.host)
+on.exit(dbDisconnect(wsf.con), add = T)
+dbGetQuery(wsf.con, "SET NAMES utf8")
 
 # Load stuff from the database
 source("load_from_database.R", local = T)
 
 # Settings for date inputs and outputs
-dateInputSep = " to "
-dateInputFormat = "MM d, yyyy"
-dateOutputFormat = "%B %e, %Y"
-dateInputMin = "2017-03-26"
-dateInputStart = seq(Sys.Date(), length = 7, by = "-1 month")[7]
+date.input.sep = " to "
+date.input.format = "MM d, yyyy"
+date.output.format = "%B %e, %Y"
+date.input.min = "2017-03-26"
+date.input.start = seq(Sys.Date(), length = 7, by = "-1 month")[7]
 
 # Create content panels
 source("create_panels.R", local = T)
@@ -51,18 +50,16 @@ ui <- navbarPage(
       # The filters
       sidebarPanel(
         navlistPanel(
-          songTitleFilter,
-          artistNameFilter,
-          topicFilter,
-          scriptureReferenceFilter,
-          languageFilter,
-          songbookFilter,
-          arrangementTypeFilter,
-          keySignatureFilter,
-          timeSignatureFilter,
-          meterFilter,
-          recencyFilter,
-          requestFilter,
+          song.title.filter,
+          artist.name.filter,
+          topic.filter,
+          scripture.reference.filter,
+          language.filter,
+          songbook.filter,
+          arrangement.type.filter,
+          key.signature.filter,
+          time.signature.filter,
+          meter.filter,
           well = F,
           widths = c(6, 6)
         ),
@@ -82,34 +79,44 @@ ui <- navbarPage(
   # Worship history page
   tabPanel("Worship history",
     navlistPanel(
-      recentSongsPanel,
-      frequentSongsPanel,
-      frequentTopicsPanel,
-      songsByYearPanel
+      recent.songs.panel,
+      frequent.songs.panel,
+      frequent.topics.panel,
+      songs.by.year.panel
     )
   ),
   
   # Song analysis page
   tabPanel("Song analysis",
     navlistPanel(
-      songbookComparisonPanel,
-      changeOverTimePanel
+      songbook.comparison.panel,
+      change.over.time.panel
     )
   ),
   
   # Help page
   tabPanel("Help",
     navlistPanel(
-      tabPanel("What is this site for?", includeHTML("help/what_for.html")),
-      tabPanel("Songs vs. instances", includeHTML("help/songs_instances.html")),
-      tabPanel("The title and artist filters", includeHTML("help/title_artist_filters.html")),
-      tabPanel("The language filter", includeHTML("help/language_filter.html")),
-      tabPanel("The topic, arrangement, and songbook filters", includeHTML("help/topic_arrangement_songbook_filters.html")),
-      tabPanel("The key and time signature filters", includeHTML("help/key_time_signature_filters.html")),
-      tabPanel("The meter filter", includeHTML("help/meter_filter.html")),
-      tabPanel("The scripture reference filter", includeHTML("help/scripture_reference_filter.html")),
-      tabPanel("Same lyrics/tune/meter", includeHTML("help/same_lyrics_tune_meter.html")),
-      tabPanel("Who should I contact with questions/comments/complaints/etc.?", includeHTML("help/contact.html"))
+      tabPanel("What is this site for?",
+               includeHTML("help/what_for.html")),
+      tabPanel("Songs vs. instances",
+               includeHTML("help/songs_instances.html")),
+      tabPanel("The title and artist filters",
+               includeHTML("help/title_artist_filters.html")),
+      tabPanel("The language filter",
+               includeHTML("help/language_filter.html")),
+      tabPanel("The topic, arrangement, and songbook filters",
+               includeHTML("help/topic_arrangement_songbook_filters.html")),
+      tabPanel("The key and time signature filters",
+               includeHTML("help/key_time_signature_filters.html")),
+      tabPanel("The meter filter",
+               includeHTML("help/meter_filter.html")),
+      tabPanel("The scripture reference filter",
+               includeHTML("help/scripture_reference_filter.html")),
+      tabPanel("Same lyrics/tune/meter",
+               includeHTML("help/same_lyrics_tune_meter.html")),
+      tabPanel("Who should I contact with questions/comments/complaints/etc.?",
+               includeHTML("help/contact.html"))
     )
   )
   
@@ -119,12 +126,21 @@ ui <- navbarPage(
 server <- function(input, output, session) {
   
   # Get worship history
-  wsf_con = dbConnect(MySQL(), user = db.user, password = db.password, dbname = db.name, host = db.host)
-  on.exit(dbDisconnect(wsf_con), add = TRUE)
-  dbGetQuery(wsf_con, "SET NAMES utf8")
-  worshiphistory.tab = dbGetQuery(wsf_con, "SELECT WorshipHistoryID, SongInstanceID, WorshipHistoryDate, WorshipSlotID FROM worshiphistory")
-  worshiphistory.tab$WorshipHistoryDate = as.Date(worshiphistory.tab$WorshipHistoryDate)
-  worshiphistory.tab = filter(worshiphistory.tab, format(worshiphistory.tab$WorshipHistoryDate, "%Y") >= 2017)
+  wsf.con = dbConnect(MySQL(), user = db.user, password = db.password,
+                      dbname = db.name, host = db.host)
+  on.exit(dbDisconnect(wsf.con), add = TRUE)
+  dbGetQuery(wsf.con, "SET NAMES utf8")
+  worship.history.df = dbGetQuery(wsf.con,
+                                  "SELECT WorshipHistoryID, SongInstanceID,
+                                          WorshipHistoryDate, WorshipSlotID
+                                   FROM worshiphistory") %>%
+    dplyr::select(worship.history.id = WorshipHistoryID,
+                  song.instance.id = SongInstanceID,
+                  worship.history.date = WorshipHistoryDate,
+                  worship.slot.id = WorshipSlotID)
+  worship.history.df$worship.history.date = as.Date(worship.history.df$worship.history.date)
+  worship.history.df = filter(worship.history.df,
+                              format(worship.history.df$worship.history.date, "%Y") >= 2017)
   
   # Populate the scripture filter based on the selected options
   includeScriptureEnd = reactive({
@@ -132,69 +148,66 @@ server <- function(input, output, session) {
   })
   observe({
     if(includeScriptureEnd()) {
-      updateSelectInput(session, "scriptureChapterStart", label = "Starting chapter:")
-      updateSelectInput(session, "scriptureVerseStart", label = "Starting verse:")
+      updateSelectInput(session, "scriptureChapterStart",
+                        label = "Starting chapter:")
+      updateSelectInput(session, "scriptureVerseStart",
+                        label = "Starting verse:")
       shinyjs::show(id = "scriptureChapterEnd")
       shinyjs::show(id = "scriptureVerseEnd")
     }
     else {
       shinyjs::hide(id = "scriptureChapterEnd")
       shinyjs::hide(id = "scriptureVerseEnd")
-      updateSelectInput(session, "scriptureChapterStart", label = "Chapter:")
-      updateSelectInput(session, "scriptureVerseStart", label = "Verse:")
+      updateSelectInput(session, "scriptureChapterStart",
+                        label = "Chapter:")
+      updateSelectInput(session, "scriptureVerseStart",
+                        label = "Verse:")
     }
   })
   dynamicChapters = reactive({
-    sort(unique(scripturereferences.tab$Chapter[scripturereferences.tab$BookID == input$scriptureBook]))
+    sort(unique(scripture.references.df$chapter[scripture.references.df$book.id == input$scriptureBook]))
   })
   observe({
-    updateSelectInput(session, "scriptureChapterStart", choices = dynamicChapters())
-    updateSelectInput(session, "scriptureChapterEnd", choices = dynamicChapters())
+    updateSelectInput(session, "scriptureChapterStart",
+                      choices = dynamicChapters())
+    updateSelectInput(session, "scriptureChapterEnd",
+                      choices = dynamicChapters())
   })
   dynamicVersesStart = reactive({
-    sort(unique(scripturereferences.tab$Verse[scripturereferences.tab$BookID == input$scriptureBook &
-                                              scripturereferences.tab$Chapter == input$scriptureChapterStart]))
+    sort(unique(scripture.references.df$verse[scripture.references.df$book.id == input$scriptureBook &
+                                                scripture.references.df$chapter == input$scriptureChapterStart]))
   })
   observe({
-    updateSelectInput(session, "scriptureVerseStart", choices = dynamicVersesStart())
+    updateSelectInput(session, "scriptureVerseStart",
+                      choices = dynamicVersesStart())
   })
   dynamicVersesEnd = reactive({
-    sort(unique(scripturereferences.tab$Verse[scripturereferences.tab$BookID == input$scriptureBook &
-                                              scripturereferences.tab$Chapter == input$scriptureChapterEnd]))
+    sort(unique(scripture.references.df$verse[scripture.references.df$book.id == input$scriptureBook &
+                                              scripture.references.df$chapter == input$scriptureChapterEnd]))
   })
   observe({
-    updateSelectInput(session, "scriptureVerseEnd", choices = dynamicVersesEnd())
+    updateSelectInput(session, "scriptureVerseEnd",
+                      choices = dynamicVersesEnd())
   })
   
   # Populate the results list
-  getSongListResults = reactive({
+  get.song.list.results = reactive({
     # Start with a list of all songs
-    songListResults = songs.tab %>%
-      select(SongID, SongName)
+    results.df = songs.df %>%
+      select(song.id, song.name)
     # Filter the songs
     source("filter_results.R", local = T)
     # Order the results
-    songListResults = inner_join(songListResults, songs.tab) %>%
-      arrange(SongNameForSort)
+    results.df = inner_join(results.df, songs.df) %>%
+      arrange(song.name.sort)
     # Return the results
-    songListResults
+    results.df
   })
   output$songList = renderUI({
     
-    # # Start with a list of all songs
-    # songListResults = songs.tab %>%
-    #   select(SongID, SongName)
-    # 
-    # # Filter the songs
-    # source("filter_results.R", local = T)
-    # 
-    # # Order the results
-    # songListResults = inner_join(songListResults, songs.tab) %>%
-    #   arrange(SongNameForSort)
-    
     # Create the list of results
-    songListResults = getSongListResults()
-    if(nrow(songListResults) > 0 &
+    results.df = get.song.list.results()
+    if(nrow(results.df) > 0 &
        (input$songTitle != "" |
         input$artistName != "" |
         length(input$topicChoices) > 0 |
@@ -206,15 +219,15 @@ server <- function(input, output, session) {
         length(input$timeChoices) > 0 |
         length(input$meterChoices) > 0) |
         length(input$requestChoices) > 0) {
-      songPanels = lapply(1:nrow(songListResults),
-                          function(i) {
-                            return(tabPanel(title = allSongPanelTitles[[as.character(songListResults$SongID[i])]],
-                                            allSongPanels[[as.character(songListResults$SongID[i])]]))
-                          })
-      songPanels[["widths"]] = c(5,7)
-      songPanels[["well"]] = F
-      songPanels[["id"]] = "songResultsPanel"
-      do.call(navlistPanel, songPanels)
+      song.panels = lapply(1:nrow(results.df),
+                           function(i) {
+                             return(tabPanel(title = all.song.panel.titles[[as.character(results.df$song.id[i])]],
+                                             all.song.panels[[as.character(results.df$song.id[i])]]))
+                           })
+      song.panels[["widths"]] = c(5,7)
+      song.panels[["well"]] = F
+      song.panels[["id"]] = "songResultsPanel"
+      do.call(navlistPanel, song.panels)
     }
   })
   

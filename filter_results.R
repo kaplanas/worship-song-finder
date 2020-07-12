@@ -10,47 +10,56 @@ if(input$songTitle != "") {
     }
   }
   for(part in parts) {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      filter(grepl(part, SongInstance, ignore.case = T)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df,
+                            by = "song.id") %>%
+      filter(grepl(part, song.instance, ignore.case = T)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
 
 # Filter by artist
 if(input$artistName != "") {
-  songListResultsLyrics = data.frame(SongID = integer(), SongName = character(), ArtistID = integer())
+  results.lyrics.df = data.frame(song.id = integer(), song.name = character(),
+                                 artist.id = integer())
   if(is.element(input$artistNameOptions, c("Lyrics", "Any"))) {
-    songListResultsLyrics = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songinstances.lyrics.tab) %>%
-      inner_join(lyrics.artists.tab) %>%
-      select(SongID, SongName, ArtistID) %>%
+    results.lyrics.df = inner_join(results.df, song.instances.df,
+                                   by = "song.id") %>%
+      inner_join(song.instances.lyrics.df, by = "song.instance.id") %>%
+      inner_join(lyrics.artists.df, by = "lyrics.id") %>%
+      select(song.id, song.name, artist.id) %>%
       distinct
   }
-  songListResultsTune = data.frame(SongID = integer(), SongName = character(), ArtistID = integer())
+  results.tune.df = data.frame(song.id = integer(), song.name = character(),
+                               artist.id = integer())
   if(is.element(input$artistNameOptions, c("Music", "Any"))) {
-    songListResultsTune = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songinstances.tunes.tab) %>%
-      inner_join(tunes.artists.tab) %>%
-      select(SongID, SongName, ArtistID) %>%
+    results.tune.df = inner_join(results.df, song.instances.df,
+                                 by = "song.id") %>%
+      inner_join(song.instances.tunes.df, by = "song.instance.id") %>%
+      inner_join(tunes.artists.df, by = "tune.id") %>%
+      select(song.id, song.name, artist.id) %>%
       distinct
   }
-  songListResultsArrangement = data.frame(SongID = integer(), SongName = character(), ArtistID = integer())
+  results.arrangement.df = data.frame(song.id = integer(),
+                                      song.name = character(),
+                                      artist.id = integer())
   if(is.element(input$artistNameOptions, c("Arrangement", "Any"))) {
-    songListResultsArrangement = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(arrangements.artists.tab) %>%
-      select(SongID, SongName, ArtistID) %>%
+    results.arrangement.df = inner_join(results.df, song.instances.df,
+                                        by = "song.id") %>%
+      inner_join(arrangements.artists.df, by = "artist.id") %>%
+      select(song.id, song.name, artist.id) %>%
       distinct
   }
   parts = unlist(strsplit(input$artistName, " "))
   parts = parts[nchar(parts) > 0]
   parts = paste(parts, collapse = "|")
-  songListResults = union(songListResultsLyrics, songListResultsTune) %>%
-    union(songListResultsArrangement) %>%
-    inner_join(artists.tab) %>%
-    select(SongID, SongName, FirstName, LastName) %>%
-    filter(grepl(parts, FirstName, ignore.case = T) | grepl(parts, LastName, ignore.case = T)) %>%
-    select(SongID, SongName) %>%
+  results.df = union(results.lyrics.df, results.tune.df) %>%
+    union(results.arrangement.df) %>%
+    inner_join(artists.df, by = "artist.id") %>%
+    select(song.id, song.name, first.name, last.name) %>%
+    filter(grepl(parts, first.name, ignore.case = T) |
+             grepl(parts, last.name, ignore.case = T)) %>%
+    select(song.id, song.name) %>%
     distinct
 }
 
@@ -58,44 +67,44 @@ if(input$artistName != "") {
 if(length(input$topicChoices) >= 1) {
   if(input$topicOptions == "Match all") {
     for(topicChoiceID in input$topicChoices) {
-      songListResults = inner_join(songListResults, songs.topics.tab) %>%
-        filter(TopicID == topicChoiceID) %>%
-        select(SongID, SongName) %>%
+      results.df = inner_join(results.df, songs.topics.df, by = "song.id") %>%
+        filter(topic.id == topicChoiceID) %>%
+        select(song.id, song.name) %>%
         distinct
     }
   }
   else {
-    songListResults = inner_join(songListResults, songs.topics.tab) %>%
-      filter(is.element(TopicID, input$topicChoices)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, songs.topics.df, by = "song.id") %>%
+      filter(is.element(topic.id, input$topicChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
 
 # Filter by scripture reference
 if(input$scriptureBook != 0) {
-  songListResults = inner_join(songListResults, songinstances.tab) %>%
-    inner_join(songinstances.lyrics.tab) %>%
-    inner_join(lyrics.scripturereferences.tab) %>%
-    inner_join(scripturereferences.tab)
+  results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+    inner_join(song.instances.lyrics.df) %>%
+    inner_join(lyrics.scripture.references.df, by = "lyrics.id") %>%
+    inner_join(scripture.references.df, by = "scripture.reference.id")
   if(input$scriptureOptions == "Single verse") {
-    songListResults = filter(songListResults,
-                             BookID == input$scriptureBook &
-                             Chapter == input$scriptureChapterStart &
-                             Verse == input$scriptureVerseStart) %>%
-      select(SongID, SongName) %>%
+    results.df = filter(results.df,
+                        book.id == input$scriptureBook &
+                          chapter == input$scriptureChapterStart &
+                          verse == input$scriptureVerseStart) %>%
+      select(song.id, song.name) %>%
       distinct
   }
   else {
-    songListResults = filter(songListResults,
-                             BookID == input$scriptureBook &
-                             (Chapter > input$scriptureChapterStart |
-                              (Chapter == input$scriptureChapterStart &
-                               Verse >= input$scriptureVerseStart)) &
-                             (Chapter < input$scriptureChapterEnd |
-                              (Chapter == input$scriptureChapterEnd &
-                               Verse <= input$scriptureVerseEnd))) %>%
-      select(SongID, SongName) %>%
+    results.df = filter(results.df,
+                        book.id == input$scriptureBook &
+                          (chapter > input$scriptureChapterStart |
+                             (chapter == input$scriptureChapterStart &
+                                verse >= input$scriptureVerseStart)) &
+                          (chapter < input$scriptureChapterEnd |
+                             (chapter == input$scriptureChapterEnd &
+                                verse <= input$scriptureVerseEnd))) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
@@ -104,20 +113,20 @@ if(input$scriptureBook != 0) {
 if(length(input$languageChoices) >= 1) {
   if(input$languageOptions == "Match all") {
     for(languageChoiceID in input$languageChoices) {
-      songListResults = inner_join(songListResults, songinstances.tab) %>%
-        inner_join(songinstances.lyrics.tab) %>%
-        inner_join(lyrics.tab) %>%
-        filter(LanguageID == languageChoiceID) %>%
-        select(SongID, SongName) %>%
+      results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+        inner_join(song.instances.lyrics.df, by = "song.instance.id") %>%
+        inner_join(lyrics.df, by = "lyrics.id") %>%
+        filter(language.id == languageChoiceID) %>%
+        select(song.id, song.name) %>%
         distinct
     }
   }
   else {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songinstances.lyrics.tab) %>%
-      inner_join(lyrics.tab) %>%
-      filter(is.element(LanguageID, input$languageChoices)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+      inner_join(song.instances.lyrics.df, by = "song.instance.id") %>%
+      inner_join(lyrics.df, by = "lyrics.id") %>%
+      filter(is.element(language.id, input$languageChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
@@ -126,18 +135,18 @@ if(length(input$languageChoices) >= 1) {
 if(length(input$songbookChoices) >= 1) {
   if(input$songbookOptions == "Match all") {
     for(songbookChoiceID in input$songbookChoices) {
-      songListResults = inner_join(songListResults, songinstances.tab) %>%
-        inner_join(songbookentries.tab) %>%
-        filter(SongbookID == songbookChoiceID) %>%
-        select(SongID, SongName) %>%
+      results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+        inner_join(songbook.entries.df, by = "song.instance.id") %>%
+        filter(songbook.id == songbookChoiceID) %>%
+        select(song.id, song.name) %>%
         distinct
     }
   }
   else {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songbookentries.tab) %>%
-      filter(is.element(SongbookID, input$songbookChoices)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+      inner_join(songbook.entries.df, by = "song.instance.id") %>%
+      filter(is.element(songbook.id, input$songbookChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
@@ -145,21 +154,25 @@ if(length(input$songbookChoices) >= 1) {
 # Filter by arrangement type
 if(length(input$arrangementChoices) >= 1) {
   if(input$arrangementOptions == "Include") {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(arrangements.arrangementtypes.tab) %>%
-      filter(is.element(ArrangementTypeID, input$arrangementChoices)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+      inner_join(arrangements.arrangement.types.df, by = "arrangement.id") %>%
+      filter(is.element(arrangement.type.id, input$arrangementChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
   else {
-    songInstancesToExclude = inner_join(songinstances.tab, arrangements.arrangementtypes.tab) %>%
-      filter(is.element(ArrangementTypeID, input$arrangementChoices)) %>%
-      select(SongInstanceID, SongID) %>%
+    song.instances.exclude.df = inner_join(song.instances.df,
+                                           arrangements.arrangement.types.df,
+                                           by = "arrangement.id") %>%
+      filter(is.element(arrangement.type.id, input$arrangementChoices)) %>%
+      select(song.instance.id, song.id) %>%
       distinct
-    songInstancesToInclude = select(songinstances.tab, SongInstanceID, SongID) %>%
-      setdiff(songInstancesToExclude)
-    songListResults = inner_join(songListResults, songInstancesToInclude) %>%
-      select(SongID, SongName) %>%
+    song.instances.include.df = select(song.instances.df, song.instance.id,
+                                       song.id) %>%
+      setdiff(song.instances.exclude.df)
+    results.df = inner_join(results.df, song.instances.include.df,
+                            by = "song.id") %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
@@ -167,23 +180,28 @@ if(length(input$arrangementChoices) >= 1) {
 # Filter by key signature
 if(length(input$keyChoices) >= 1) {
   if(input$keyOptions == "Match all") {
-    songInstancesToInclude = select(songinstances.tab, SongInstanceID)
+    song.instances.include.df = select(song.instances.df, song.instance.id)
     for(keyChoiceID in input$keyChoices) {
-      songInstancesToInclude = inner_join(songInstancesToInclude, songinstances.keysignatures.tab) %>%
-        filter(KeySignatureID == keyChoiceID) %>%
-        select(SongInstanceID) %>%
+      song.instances.include.df = inner_join(song.instances.include.df,
+                                             song.instances.key.signatures.df,
+                                             by = "song.instance.id") %>%
+        filter(key.signature.id == keyChoiceID) %>%
+        select(song.instance.id) %>%
         distinct
     }
-    songInstancesToInclude = inner_join(songinstances.tab, songInstancesToInclude)
-    songListResults = inner_join(songListResults, songInstancesToInclude) %>%
-      select(SongID, SongName) %>%
+    song.instances.include.df = inner_join(song.instances.df,
+                                           song.instances.include.df,
+                                           by = "song.instance.id")
+    results.df = inner_join(results.df, song.instances.include.df,
+                            by = "song.id") %>%
+      select(song.id, song.name) %>%
       distinct
   }
   else {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songinstances.keysignatures.tab) %>%
-      filter(is.element(KeySignatureID, input$keyChoices)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+      inner_join(song.instances.key.signatures.df, by = "song.instance.id") %>%
+      filter(is.element(key.signature.id, input$keyChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
@@ -191,23 +209,28 @@ if(length(input$keyChoices) >= 1) {
 # Filter by time signature
 if(length(input$timeChoices) >= 1) {
   if(input$timeOptions == "Match all") {
-    songInstancesToInclude = select(songinstances.tab, SongInstanceID)
+    song.instances.include.df = select(song.instances.df, song.instance.id)
     for(timeChoiceID in input$timeChoices) {
-      songInstancesToInclude = inner_join(songInstancesToInclude, songinstances.timesignatures.tab) %>%
-        filter(TimeSignatureID == timeChoiceID) %>%
-        select(SongInstanceID) %>%
+      song.instances.include.df = inner_join(song.instances.include.df,
+                                             song.instances.time.signatures.df,
+                                             by = "song.instance.id") %>%
+        filter(time.signature.id == timeChoiceID) %>%
+        select(song.instance.id) %>%
         distinct
     }
-    songInstancesToInclude = inner_join(songinstances.tab, songInstancesToInclude)
-    songListResults = inner_join(songListResults, songInstancesToInclude) %>%
-      select(SongID, SongName) %>%
+    song.instances.include.df = inner_join(song.instances.df,
+                                           song.instances.include.df,
+                                           by = "song.instance.id")
+    results.df = inner_join(results.df, song.instances.include.df,
+                            by = "song.id") %>%
+      select(song.id, song.name) %>%
       distinct
   }
   else {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songinstances.timesignatures.tab) %>%
-      filter(is.element(TimeSignatureID, input$timeChoices)) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+      inner_join(song.instances.time.signatures.df, by = "song.instance.id") %>%
+      filter(is.element(time.signature.id, input$timeChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }
@@ -215,50 +238,37 @@ if(length(input$timeChoices) >= 1) {
 # Filter by meter
 if(length(input$meterChoices) >= 1) {
   if(input$meterOptions == "Match all") {
-    songInstancesToInclude = select(songinstances.tab, SongInstanceID)
+    song.instances.include.df = select(song.instances.df, song.instance.id)
     for(meterChoiceID in input$meterChoices) {
-      songInstancesToInclude = inner_join(songInstancesToInclude, songinstances.lyrics.tab) %>%
-        inner_join(lyrics.meters.tab) %>%
-        inner_join(songinstances.tunes.tab) %>%
-        inner_join(tunes.meters.tab, by = "TuneID") %>%
-        select(SongInstanceID, MeterID.x, MeterID.y) %>%
-        gather(MeterSource, MeterID, -SongInstanceID) %>%
-        select(SongInstanceID, MeterID) %>%
-        filter(MeterID == meterChoiceID) %>%
-        select(SongInstanceID) %>%
+      song.instances.include.df = inner_join(song.instances.include.df,
+                                             song.instances.lyrics.df,
+                                             by = "song.instance.id") %>%
+        inner_join(lyrics.meters.df, by = "lyrics.id") %>%
+        inner_join(song.instances.tunes.df, by = "song.instance.id") %>%
+        inner_join(tunes.meters.df, by = "tune.id") %>%
+        select(song.instance.id, meter.id.x, meter.id.y) %>%
+        gather(meter.source, meter.id, -song.instance.id) %>%
+        select(song.instance.id, meter.id) %>%
+        filter(meter.id == meterChoiceID) %>%
+        select(song.instance.id) %>%
         distinct
     }
-    songInstancesToInclude = inner_join(songinstances.tab, songInstancesToInclude)
-    songListResults = inner_join(songListResults, songInstancesToInclude) %>%
-      select(SongID, SongName) %>%
+    song.instances.include.df = inner_join(song.instances.df,
+                                           song.instances.include.df,
+                                           by = "song.instance.id")
+    results.df = inner_join(results.df, song.instances.include.df,
+                            by = "song.id") %>%
+      select(song.id, song.name) %>%
       distinct
   }
   else {
-    songListResults = inner_join(songListResults, songinstances.tab) %>%
-      inner_join(songinstances.lyrics.tab) %>%
-      inner_join(lyrics.meters.tab) %>%
-      inner_join(songinstances.tunes.tab) %>%
-      inner_join(tunes.meters.tab, by = "TuneID") %>%
-      filter(is.element(MeterID.x, input$meterChoices) | is.element(MeterID.y, input$meterChoices)) %>%
-      select(SongID, SongName) %>%
-      distinct
-  }
-}
-
-# Filter by date last sung
-if(input$filterByDate) {
-  songsSungSinceCutoff = inner_join(songs.tab, songinstances.tab) %>%
-    inner_join(worshiphistory.tab) %>%
-    filter(WorshipHistoryDate >= input$notSungSinceDate) %>%
-    select(SongID, SongName)
-  songListResults = setdiff(songListResults, songsSungSinceCutoff)
-}
-
-# Filter by survey and special requests
-if(length(input$requestChoices) >= 1) {
-  if(is.element("request", input$requestChoices)) {
-    songListResults = inner_join(songListResults, specialrequests.tab) %>%
-      select(SongID, SongName) %>%
+    results.df = inner_join(results.df, song.instances.df, by = "song.id") %>%
+      inner_join(song.instances.lyrics.df, by = "song.instance.id") %>%
+      inner_join(lyrics.meters.df, by = "lyrics.id") %>%
+      inner_join(song.instances.tunes.df, by = "song.instance.id") %>%
+      inner_join(tunes.meters.df, by = "tune.id") %>%
+      filter(is.element(meter.id.x, input$meterChoices) | is.element(meter.id.y, input$meterChoices)) %>%
+      select(song.id, song.name) %>%
       distinct
   }
 }

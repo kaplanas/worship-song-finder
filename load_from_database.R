@@ -3,144 +3,555 @@
 #####################################
 
 # Get songs table
-songs.tab = dbGetQuery(wsf_con, "SELECT SongID, SongName, SongNameForSort FROM songs")
-Encoding(songs.tab$SongName) = "UTF-8"
-Encoding(songs.tab$SongNameForSort) = "UTF-8"
+songs.df = dbGetQuery(wsf.con,
+                      "SELECT SongID, SongName, SongNameForSort
+                       FROM songs") %>%
+  dplyr::select(song.id = SongID, song.name = SongName,
+                song.name.sort = SongNameForSort)
+Encoding(songs.df$song.name) = "UTF-8"
+Encoding(songs.df$song.name.sort) = "UTF-8"
 
 # Get topics table
-topics.tab = dbGetQuery(wsf_con, "SELECT TopicID, TopicName FROM topics")
+topics.df = dbGetQuery(wsf.con,
+                       "SELECT TopicID, TopicName
+                         FROM topics") %>%
+  dplyr::select(topic.id = TopicID, topic.name = TopicName)
 
 # Get song instances table
-songinstances.tab = dbGetQuery(wsf_con, "SELECT SongInstanceID, SongInstance, ArrangementID, SongID FROM songinstances")
-Encoding(songinstances.tab$SongInstance) = "UTF-8"
+song.instances.df = dbGetQuery(wsf.con,
+                               "SELECT SongInstanceID, SongInstance,
+                                       ArrangementID, SongID
+                                FROM songinstances") %>%
+  dplyr::select(song.instance.id = SongInstanceID, song.instance = SongInstance,
+                arrangement.id = ArrangementID, song.id = SongID)
+Encoding(song.instances.df$song.instance) = "UTF-8"
 
 # Get lyrics table
-lyrics.tab = dbGetQuery(wsf_con, "SELECT LyricsID, FirstLine, RefrainFirstLine, CopyrightYear, LanguageID, FileName FROM lyrics")
-Encoding(lyrics.tab$FirstLine) = "UTF-8"
-Encoding(lyrics.tab$RefrainFirstLine) = "UTF-8"
+lyrics.df = dbGetQuery(wsf.con,
+                       "SELECT LyricsID, FirstLine, RefrainFirstLine,
+                               CopyrightYear, LanguageID, FileName
+                        FROM lyrics") %>%
+  dplyr::select(lyrics.id = LyricsID, first.line = FirstLine,
+                refrain.first.line = RefrainFirstLine,
+                copyright.year = CopyrightYear, language.id = LanguageID,
+                file.name = FileName)
+Encoding(lyrics.df$first.line) = "UTF-8"
+Encoding(lyrics.df$refrain.first.line) = "UTF-8"
+
+# Get tunes table
+tunes.df = dbGetQuery(wsf.con,
+                      "SELECT TuneID, TuneName, CopyrightYear
+                       FROM tunes") %>%
+  dplyr::select(tune.id = TuneID, tune.name = TuneName,
+                copyright.year = CopyrightYear)
+Encoding(tunes.df$tune.name) = "UTF-8"
+
+# Get arrangements table
+arrangements.df = dbGetQuery(wsf.con,
+                             "SELECT ArrangementID, ArrangementName,
+                                     CopyrightYear
+                              FROM arrangements") %>%
+  dplyr::select(arrangement.id = ArrangementID,
+                arrangement.name = ArrangementName,
+                copyright.year = CopyrightYear)
 
 # Get artists table
-artists.tab = dbGetQuery(wsf_con, "SELECT ArtistID, LastName, FirstName, Gender FROM artists")
-Encoding(artists.tab$LastName) = "UTF-8"
-Encoding(artists.tab$FirstName) = "UTF-8"
+artists.df = dbGetQuery(wsf.con,
+                        "SELECT ArtistID, LastName, FirstName, Gender
+                         FROM artists") %>%
+  mutate(artist.name = case_when(is.na(FirstName) ~ LastName,
+                                 T ~ paste(FirstName, LastName,
+                                           sep = " "))) %>%
+  dplyr::select(artist.id = ArtistID, last.name = LastName,
+                first.name = FirstName, artist.name, gender = Gender)
+Encoding(artists.df$last.name) = "UTF-8"
+Encoding(artists.df$first.name) = "UTF-8"
 
 # Get genders table
-genders.tab = dbGetQuery(wsf_con, "SELECT GenderID, GenderName FROM genders")
+genders.df = dbGetQuery(wsf.con,
+                        "SELECT GenderID, GenderName
+                         FROM genders") %>%
+  dplyr::select(gender.id = GenderID, gender.name = GenderName)
 
 # Get languages table
-languages.tab = dbGetQuery(wsf_con, "SELECT LanguageID, LanguageName FROM languages")
+languages.df = dbGetQuery(wsf.con,
+                          "SELECT LanguageID, LanguageName
+                           FROM languages") %>%
+  dplyr::select(language.id = LanguageID, language.name = LanguageName)
 
 # Get meters table
-meters.tab = dbGetQuery(wsf_con, "SELECT MeterID, Meter FROM meters")
+meters.df = dbGetQuery(wsf.con,
+                       "SELECT MeterID, Meter
+                        FROM meters") %>%
+  dplyr::select(meter.id = MeterID, meter = Meter)
 
 # Get arrangement types table
-arrangementtypes.tab = dbGetQuery(wsf_con, "SELECT ArrangementTypeID, ArrangementType FROM arrangementtypes")
+arrangement.types.df = dbGetQuery(wsf.con,
+                                  "SELECT ArrangementTypeID, ArrangementType
+                                   FROM arrangementtypes") %>%
+  dplyr::select(arrangement.type.id = ArrangementTypeID,
+                arrangement.type = ArrangementType)
 
 # Get time signatures table
-timesignatures.tab = dbGetQuery(wsf_con, "SELECT TimeSignatureID, TimeSignatureBeat, TimeSignatureMeasure FROM timesignatures")
-
-# Get key signatures table
-keysignatures.tab = dbGetQuery(wsf_con, "SELECT KeySignatureID, PitchID, AccidentalID, ModeID FROM keysignatures")
+time.signatures.df = dbGetQuery(wsf.con,
+                                "SELECT TimeSignatureID, TimeSignatureBeat,
+                                        TimeSignatureMeasure
+                                 FROM timesignatures") %>%
+  mutate(time.signature.string = paste(TimeSignatureBeat, TimeSignatureMeasure,
+                                       sep = "/")) %>%
+  dplyr::select(time.signature.id = TimeSignatureID,
+                time.signature.beat = TimeSignatureBeat,
+                time.signature.measure = TimeSignatureMeasure,
+                time.signature.string)
 
 # Get pitches table
-pitches.tab = dbGetQuery(wsf_con, "SELECT PitchID, PitchName FROM pitches")
+pitches.df = dbGetQuery(wsf.con,
+                        "SELECT PitchID, PitchName
+                         FROM pitches") %>%
+  dplyr::select(pitch.id = PitchID, pitch.name = PitchName)
 
 # Get accidentals table
-accidentals.tab = dbGetQuery(wsf_con, "SELECT AccidentalID, AccidentalSymbol FROM accidentals")
-Encoding(accidentals.tab$AccidentalSymbol) = "UTF-8"
+accidentals.df = dbGetQuery(wsf.con,
+                            "SELECT AccidentalID, AccidentalSymbol
+                             FROM accidentals") %>%
+  dplyr::select(accidental.id = AccidentalID,
+                accidental.symbol = AccidentalSymbol)
+# It's ridiculous that the actual symbols aren't coming through; I don't have
+# the energy to figure out what's going on with the character encoding
+accidentals.df = accidentals.df %>%
+  mutate(accidental.symbol = case_when(accidental.id == 1 ~ "♯",
+                                       accidental.id == 2 ~ "♭",
+                                       accidental.id == 3 ~ "♮"))
+Encoding(accidentals.df$accidental.symbol) = "UTF-8"
 
 # Get modes table
-modes.tab = dbGetQuery(wsf_con, "SELECT ModeID, ModeName FROM modes")
+modes.df = dbGetQuery(wsf.con,
+                      "SELECT ModeID, ModeName
+                       FROM modes") %>%
+  dplyr::select(mode.id = ModeID, mode.name = ModeName)
+
+# Get key signatures table
+key.signatures.df = dbGetQuery(wsf.con,
+                               "SELECT KeySignatureID, PitchID, AccidentalID,
+                               ModeID
+                               FROM keysignatures") %>%
+  left_join(pitches.df, by = c("PitchID" = "pitch.id")) %>%
+  left_join(accidentals.df, by = c("AccidentalID" = "accidental.id")) %>%
+  left_join(modes.df, by = c("ModeID" = "mode.id")) %>%
+  mutate(key.signature.string = paste(pitch.name,
+                                      ifelse(AccidentalID == 3, "",
+                                             accidental.symbol),
+                                      case_when(ModeID == 1 ~ "",
+                                                ModeID == 2 ~ "m",
+                                                T ~ paste(" ",
+                                                          mode.name,
+                                                          sep = "")),
+                                      sep = "")) %>%
+  dplyr::select(key.signature.id = KeySignatureID, pitch.id = PitchID,
+                pitch.name, accidental.id = AccidentalID, mode.id = ModeID,
+                key.signature.string)
 
 # Get scripture references table
-scripturereferences.tab = dbGetQuery(wsf_con, "SELECT ScriptureReferenceID, BookID, Chapter, Verse FROM scripturereferences")
+scripture.references.df = dbGetQuery(wsf.con,
+                                     "SELECT ScriptureReferenceID, BookID,
+                                             Chapter, Verse
+                                      FROM scripturereferences") %>%
+  dplyr::select(scripture.reference.id = ScriptureReferenceID, book.id = BookID,
+                chapter = Chapter, verse = Verse)
 
 # Get books of the bible table
-booksofthebible.tab = dbGetQuery(wsf_con, "SELECT BookID, BookName, BookAbbreviation FROM booksofthebible")
+bible.books.df = dbGetQuery(wsf.con,
+                            "SELECT BookID, BookName, BookAbbreviation
+                             FROM booksofthebible") %>%
+  dplyr::select(book.id = BookID, book.name = BookName,
+                book.abbreviation = BookAbbreviation) %>%
+  arrange(book.id)
 
 # Get songbook entries table
-songbookentries.tab = dbGetQuery(wsf_con, "SELECT SongbookEntryID, SongbookID, SongInstanceID FROM songbookentries")
+songbook.entries.df = dbGetQuery(wsf.con,
+                                 "SELECT SongbookEntryID, SongbookID,
+                                         SongbookVolumeID, EntryNumber,
+                                         SongInstanceID
+                                  FROM songbookentries") %>%
+  dplyr::select(songbook.entry.id = SongbookEntryID, songbook.id = SongbookID,
+                songbook.volume.id = SongbookVolumeID,
+                entry.number = EntryNumber, song.instance.id = SongInstanceID)
 
 # Get songbooks table
-songbooks.tab = dbGetQuery(wsf_con, "SELECT SongbookID, SongbookName, SongbookAbbreviation FROM songbooks")
-Encoding(songbooks.tab$SongbookName) = "UTF-8"
-Encoding(songbooks.tab$SongbookAbbreviation) = "UTF-8"
+songbooks.df = dbGetQuery(wsf.con,
+                          "SELECT SongbookID, SongbookName, SongbookAbbreviation
+                           FROM songbooks") %>%
+  dplyr::select(songbook.id = SongbookID, songbook.name = SongbookName,
+                songbook.abbreviation = SongbookAbbreviation)
+Encoding(songbooks.df$songbook.name) = "UTF-8"
+Encoding(songbooks.df$songbook.abbreviation) = "UTF-8"
+
+# Get songbook volumes table
+songbook.volumes.df = dbGetQuery(wsf.con,
+                                 "SELECT SongbookVolumeID, SongbookVolume
+                                  FROM songbookvolumes") %>%
+  dplyr::select(songbook.volume.id = SongbookVolumeID,
+                songbook.volume = SongbookVolume)
+
+# Get copyright holders table
+copyright.holders.df = dbGetQuery(wsf.con,
+                                  "SELECT CopyrightHolderID,
+                                          CopyrightHolderName
+                                   FROM copyrightholders") %>%
+  dplyr::select(copyright.holder.id = CopyrightHolderID,
+                copyright.holder.name = CopyrightHolderName)
+Encoding(copyright.holders.df$copyright.holder.name) = "UTF-8"
 
 # Get worship slots table
-worshipslots.tab = dbGetQuery(wsf_con, "SELECT WorshipSlotID, WorshipSlot, WorshipSlotOrder FROM worshipslots") %>%
-  arrange(WorshipSlotOrder)
-
-# Get special requests tables
-specialrequesters.tab = dbGetQuery(wsf_con, "SELECT SpecialRequesterID, FirstName, LastName FROM specialrequesters")
-specialrequests.tab = dbGetQuery(wsf_con, "SELECT SongID, SpecialRequesterID FROM specialrequests")
+worship.slots.df = dbGetQuery(wsf.con,
+                              "SELECT WorshipSlotID, WorshipSlot,
+                                      WorshipSlotOrder
+                               FROM worshipslots") %>%
+  dplyr::select(worship.slot.id = WorshipSlotID, worship.slot = WorshipSlot,
+                worship.slot.order = WorshipSlotOrder) %>%
+  arrange(worship.slot.order)
 
 # Get bridge tables
-songs.topics.tab = dbGetQuery(wsf_con, "SELECT SongID, TopicID FROM songs_topics")
-songinstances.lyrics.tab = dbGetQuery(wsf_con, "SELECT SongInstanceID, LyricsID FROM songinstances_lyrics")
-lyrics.artists.tab = dbGetQuery(wsf_con, "SELECT LyricsID, ArtistID FROM lyrics_artists")
-lyrics.meters.tab = dbGetQuery(wsf_con, "SELECT LyricsID, MeterID FROM lyrics_meters")
-lyrics.scripturereferences.tab = dbGetQuery(wsf_con, "SELECT LyricsID, ScriptureReferenceID FROM lyrics_scripturereferences")
-lyrics.copyrightholders.tab = dbGetQuery(wsf_con, "SELECT LyricsID, CopyrightHolderID FROM lyrics_copyrightholders")
-songinstances.tunes.tab = dbGetQuery(wsf_con, "SELECT SongInstanceID, TuneID FROM songinstances_tunes")
-tunes.artists.tab = dbGetQuery(wsf_con, "SELECT TuneID, ArtistID FROM tunes_artists")
-tunes.meters.tab = dbGetQuery(wsf_con, "SELECT TuneID, MeterID FROM tunes_meters")
-arrangements.artists.tab = dbGetQuery(wsf_con, "SELECT ArrangementID, ArtistID FROM arrangements_artists")
-arrangements.arrangementtypes.tab = dbGetQuery(wsf_con, "SELECT ArrangementID, ArrangementTypeID FROM arrangements_arrangementtypes")
-songinstances.timesignatures.tab = dbGetQuery(wsf_con, "SELECT SongInstanceID, TimeSignatureID FROM songinstances_timesignatures")
-songinstances.keysignatures.tab = dbGetQuery(wsf_con, "SELECT SongInstanceID, KeySignatureID FROM songinstances_keysignatures")
+songs.topics.df = dbGetQuery(wsf.con,
+                             "SELECT SongID, TopicID
+                              FROM songs_topics") %>%
+  dplyr::select(song.id = SongID, topic.id = TopicID)
+song.instances.lyrics.df = dbGetQuery(wsf.con,
+                                      "SELECT SongInstanceID, LyricsID
+                                       FROM songinstances_lyrics") %>%
+  dplyr::select(song.instance.id = SongInstanceID, lyrics.id = LyricsID)
+lyrics.artists.df = dbGetQuery(wsf.con,
+                               "SELECT LyricsID, ArtistID
+                                FROM lyrics_artists") %>%
+  dplyr::select(lyrics.id = LyricsID, artist.id = ArtistID)
+lyrics.meters.df = dbGetQuery(wsf.con,
+                              "SELECT LyricsID, MeterID
+                               FROM lyrics_meters") %>%
+  dplyr::select(lyrics.id = LyricsID, meter.id = MeterID)
+lyrics.scripture.references.df = dbGetQuery(wsf.con,
+                                            "SELECT LyricsID,
+                                                    ScriptureReferenceID
+                                             FROM lyrics_scripturereferences") %>%
+  dplyr::select(lyrics.id = LyricsID,
+                scripture.reference.id = ScriptureReferenceID)
+lyrics.copyright.holders.df = dbGetQuery(wsf.con,
+                                         "SELECT LyricsID, CopyrightHolderID
+                                          FROM lyrics_copyrightholders") %>%
+  dplyr::select(lyrics.id = LyricsID, copyright.holder.id = CopyrightHolderID)
+song.instances.tunes.df = dbGetQuery(wsf.con,
+                                     "SELECT SongInstanceID, TuneID
+                                      FROM songinstances_tunes") %>%
+  dplyr::select(song.instance.id = SongInstanceID, tune.id = TuneID)
+tunes.artists.df = dbGetQuery(wsf.con,
+                              "SELECT TuneID, ArtistID
+                               FROM tunes_artists") %>%
+  dplyr::select(tune.id = TuneID, artist.id = ArtistID)
+tunes.meters.df = dbGetQuery(wsf.con,
+                             "SELECT TuneID, MeterID
+                              FROM tunes_meters") %>%
+  dplyr::select(tune.id = TuneID, meter.id = MeterID)
+tunes.copyright.holders.df = dbGetQuery(wsf.con,
+                                        "SELECT TuneID, CopyrightHolderID
+                                         FROM tunes_copyrightholders") %>%
+  dplyr::select(tune.id = TuneID, copyright.holder.id = CopyrightHolderID)
+arrangements.artists.df = dbGetQuery(wsf.con,
+                                     "SELECT ArrangementID, ArtistID
+                                      FROM arrangements_artists") %>%
+  dplyr::select(arrangement.id = ArrangementID, artist.id = ArtistID)
+arrangements.arrangement.types.df = dbGetQuery(wsf.con,
+                                               "SELECT ArrangementID,
+                                                       ArrangementTypeID
+                                                FROM arrangements_arrangementtypes") %>%
+  dplyr::select(arrangement.id = ArrangementID,
+                arrangement.type.id = ArrangementTypeID)
+arrangements.copyright.holders.df = dbGetQuery(wsf.con,
+                                               "SELECT ArrangementID,
+                                                       CopyrightHolderID
+                                                FROM arrangements_copyrightholders") %>%
+  dplyr::select(arrangement.id = ArrangementID,
+                copyright.holder.id = CopyrightHolderID)
+song.instances.time.signatures.df = dbGetQuery(wsf.con,
+                                               "SELECT SongInstanceID,
+                                                       TimeSignatureID
+                                                FROM songinstances_timesignatures") %>%
+  dplyr::select(song.instance.id = SongInstanceID,
+                time.signature.id = TimeSignatureID)
+song.instances.key.signatures.df = dbGetQuery(wsf.con,
+                                              "SELECT SongInstanceID,
+                                                      KeySignatureID
+                                               FROM songinstances_keysignatures") %>%
+  dplyr::select(song.instance.id = SongInstanceID,
+                key.signature.id = KeySignatureID)
 
 #########################################
 # Collect song info into pretty formats #
 #########################################
 
+# Function that turns a list of integers into a string with ranges.
+ints.to.range = function(ints) {
+  if(length(ints) == 0) {
+    return("")
+  }
+  s = sort(ints)
+  r = ""
+  in.range = F
+  for(i in 1:length(s)) {
+    if(i == 1) {
+      r = as.character(s[i])
+    } else if(s[i] == s[i - 1] + 1) {
+      if(!in.range) {
+        r = paste(r, "-", sep = "")
+      }
+      in.range = T
+      if(i == length(s)) {
+        r = paste(r, s[i], sep = "")
+      } else if(s[i] != s[i + 1] - 1) {
+        r = paste(r, s[i], sep = "")
+      }
+    } else {
+      in.range = F
+      r = paste(r, s[i], sep = ", ")
+    }
+  }
+  return(r)
+}
+
 # Get info for all songs
-allSongInfoQuery = "SELECT SongID, Title, Topics, Year FROM song_info"
-allSongInfo = dbGetQuery(wsf_con, allSongInfoQuery)
-Encoding(allSongInfo$Title) = "UTF-8"
-allSongInfo$Decade = floor(allSongInfo$Year / 10) * 10
+song.info.df = songs.df %>%
+  left_join(songs.topics.df %>%
+              inner_join(topics.df, by = c("topic.id")) %>%
+              group_by(song.id) %>%
+              arrange(topic.name) %>%
+              summarise(topics = paste(topic.name, collapse = ", ")) %>%
+              ungroup(),
+            by = c("song.id")) %>%
+  left_join(song.instances.df %>%
+              inner_join(song.instances.lyrics.df,
+                         by = c("song.instance.id")) %>%
+              inner_join(lyrics.df,
+                         by = c("lyrics.id")) %>%
+              filter(!is.na(copyright.year)) %>%
+              group_by(song.id) %>%
+              summarise(last.lyrics.year = max(copyright.year)),
+            by = c("song.id")) %>%
+  left_join(song.instances.df %>%
+              inner_join(song.instances.tunes.df,
+                         by = c("song.instance.id")) %>%
+              inner_join(tunes.df,
+                         by = c("tune.id")) %>%
+              filter(!is.na(copyright.year)) %>%
+              group_by(song.id) %>%
+              summarise(last.tune.year = max(copyright.year)),
+            by = c("song.id")) %>%
+  mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
+                       NA, pmax(last.lyrics.year, last.tune.year)),
+         decade = floor(year / 10) * 10) %>%
+  dplyr::select(song.id, title = song.name, topics, year, decade)
+Encoding(song.info.df$title) = "UTF-8"
 
 # Get info for all song instances
-allSongInstanceInfoQuery = "SELECT SongID, SongInstanceID, Title, Year, SongbookEntries, ArrangementTypes, KeySignatures, TimeSignatures, ScriptureReferences, Lyricists, Composers, Arrangers, LyricsCopyright, TuneCopyright, ArrangementCopyright FROM songinstance_info ORDER BY NumSongbookEntries DESC, TitleForSort"
-allSongInstanceInfo = dbGetQuery(wsf_con, allSongInstanceInfoQuery)
-Encoding(allSongInstanceInfo$Title) = "UTF-8"
-Encoding(allSongInstanceInfo$KeySignatures) = "UTF-8"
-Encoding(allSongInstanceInfo$Lyricists) = "UTF-8"
-Encoding(allSongInstanceInfo$Composers) = "UTF-8"
-Encoding(allSongInstanceInfo$Arrangers) = "UTF-8"
-Encoding(allSongInstanceInfo$LyricsCopyright) = "UTF-8"
-Encoding(allSongInstanceInfo$TuneCopyright) = "UTF-8"
-Encoding(allSongInstanceInfo$ArrangementCopyright) = "UTF-8"
-allSongInstanceInfo$Decade = floor(allSongInstanceInfo$Year / 10) * 10
+song.instance.info.df = song.instances.df %>%
+  left_join(song.instances.lyrics.df %>%
+              inner_join(lyrics.df,
+                         by = c("lyrics.id")) %>%
+              filter(!is.na(copyright.year)) %>%
+              group_by(song.instance.id) %>%
+              summarise(last.lyrics.year = max(copyright.year)),
+            by = c("song.instance.id")) %>%
+  left_join(song.instances.tunes.df %>%
+              inner_join(tunes.df,
+                         by = c("tune.id")) %>%
+              filter(!is.na(copyright.year)) %>%
+              group_by(song.instance.id) %>%
+              summarise(last.tune.year = max(copyright.year)),
+            by = c("song.instance.id")) %>%
+  left_join(songbook.entries.df %>%
+              inner_join(songbooks.df, by = c("songbook.id")) %>%
+              left_join(songbook.volumes.df, by = c("songbook.volume.id")) %>%
+              mutate(entry.string = paste(songbook.abbreviation,
+                                          case_when(is.na(songbook.volume) ~ "",
+                                                    songbook.id == 6 ~ "",
+                                                    T ~ paste(" ",
+                                                              songbook.volume,
+                                                              sep = "")),
+                                          case_when(songbook.id == 12 ~ "",
+                                                    is.na(entry.number) ~ "",
+                                                    T ~ paste(" ", entry.number,
+                                                              sep = "")),
+                                          sep = "")) %>%
+              group_by(song.instance.id) %>%
+              arrange(songbook.abbreviation, entry.number) %>%
+              summarise(songbook.entries = paste(entry.string,
+                                                 collapse = ", ")) %>%
+              ungroup(),
+            by = c("song.instance.id")) %>%
+  left_join(arrangements.arrangement.types.df %>%
+              inner_join(arrangement.types.df,
+                         by = c("arrangement.type.id")) %>%
+              group_by(arrangement.id) %>%
+              arrange(arrangement.type) %>%
+              summarise(arrangement.types = paste(arrangement.type,
+                                                  collapse = ", ")),
+            by = c("arrangement.id")) %>%
+  left_join(song.instances.key.signatures.df %>%
+              inner_join(key.signatures.df,
+                         by = c("key.signature.id")) %>%
+              group_by(song.instance.id) %>%
+              arrange(pitch.id, accidental.id, mode.id) %>%
+              summarise(key.signatures = paste(key.signature.string,
+                                               collapse = ", ")),
+            by = c("song.instance.id")) %>%
+  left_join(song.instances.time.signatures.df %>%
+              inner_join(time.signatures.df,
+                         by = c("time.signature.id")) %>%
+              group_by(song.instance.id) %>%
+              arrange(time.signature.measure, time.signature.beat) %>%
+              summarise(time.signatures = paste(time.signature.string,
+                                                collapse = ", ")),
+            by = c("song.instance.id")) %>%
+  left_join(song.instances.lyrics.df %>%
+              inner_join(lyrics.scripture.references.df,
+                         by = c("lyrics.id")) %>%
+              inner_join(scripture.references.df,
+                         by = c("scripture.reference.id")) %>%
+              inner_join(bible.books.df,
+                         by = c("book.id")) %>%
+              dplyr::select(song.instance.id, book.id, book.abbreviation,
+                            chapter, verse) %>%
+              distinct() %>%
+              group_by(song.instance.id, book.id, book.abbreviation, chapter) %>%
+              summarise(verse.string = ints.to.range(verse)) %>%
+              ungroup() %>%
+              mutate(chapter.string = paste(chapter, verse.string, sep = ":")) %>%
+              group_by(song.instance.id, book.id, book.abbreviation) %>%
+              summarise(chapter.string = paste(chapter.string,
+                                               collapse = ", ")) %>%
+              ungroup() %>%
+              mutate(book.string = paste(book.abbreviation, chapter.string,
+                                         sep = " ")) %>%
+              group_by(song.instance.id) %>%
+              summarise(scripture.references = paste(book.string, collapse = "; ")),
+            by = c("song.instance.id")) %>%
+  left_join(song.instances.lyrics.df %>%
+              inner_join(lyrics.artists.df,
+                         by = c("lyrics.id")) %>%
+              inner_join(artists.df,
+                         by = c("artist.id")) %>%
+              dplyr::select(song.instance.id, last.name, first.name,
+                            artist.name) %>%
+              distinct() %>%
+              group_by(song.instance.id) %>%
+              arrange(last.name, first.name) %>%
+              summarise(lyricists = paste(artist.name, collapse = ", ")),
+            by = c("song.instance.id")) %>%
+  left_join(song.instances.tunes.df %>%
+              inner_join(tunes.artists.df,
+                         by = c("tune.id")) %>%
+              inner_join(artists.df,
+                         by = c("artist.id")) %>%
+              dplyr::select(song.instance.id, last.name, first.name,
+                            artist.name) %>%
+              distinct() %>%
+              group_by(song.instance.id) %>%
+              arrange(last.name, first.name) %>%
+              summarise(composers = paste(artist.name, collapse = ", ")),
+            by = c("song.instance.id")) %>%
+  left_join(arrangements.artists.df %>%
+              inner_join(artists.df,
+                         by = c("artist.id")) %>%
+              dplyr::select(arrangement.id, last.name, first.name,
+                            artist.name) %>%
+              distinct() %>%
+              group_by(arrangement.id) %>%
+              arrange(last.name, first.name) %>%
+              summarise(arrangers = paste(artist.name, collapse = ", ")),
+            by = c("arrangement.id")) %>%
+  left_join(song.instances.lyrics.df %>%
+              inner_join(lyrics.df,
+                         by = c("lyrics.id")) %>%
+              inner_join(lyrics.copyright.holders.df,
+                         by = c("lyrics.id")) %>%
+              inner_join(copyright.holders.df,
+                         by = c("copyright.holder.id")) %>%
+              group_by(song.instance.id) %>%
+              summarise(year.string = paste(unique(copyright.year),
+                                            collapse = ", "),
+                        holder.string = paste(copyright.holder.name,
+                                              collapse = ", ")) %>%
+              ungroup() %>%
+              mutate(lyrics.copyright = paste(ifelse(holder.string == "public domain",
+                                                     "", "© "),
+                                              ifelse(year.string == "NA", "",
+                                                     paste(year.string, " ",
+                                                           sep = "")),
+                                              holder.string,
+                                              sep = "")),
+            by = c("song.instance.id")) %>%
+  left_join(song.instances.tunes.df %>%
+              inner_join(tunes.df,
+                         by = c("tune.id")) %>%
+              inner_join(tunes.copyright.holders.df,
+                         by = c("tune.id")) %>%
+              inner_join(copyright.holders.df,
+                         by = c("copyright.holder.id")) %>%
+              group_by(song.instance.id) %>%
+              summarise(year.string = paste(unique(copyright.year),
+                                            collapse = ", "),
+                        holder.string = paste(copyright.holder.name,
+                                              collapse = ", ")) %>%
+              ungroup() %>%
+              mutate(tune.copyright = paste(ifelse(holder.string == "public domain",
+                                                   "", "© "),
+                                            ifelse(year.string == "NA", "",
+                                                   paste(year.string, " ",
+                                                         sep = "")),
+                                            holder.string,
+                                            sep = "")),
+            by = c("song.instance.id")) %>%
+  left_join(arrangements.df %>%
+              inner_join(arrangements.copyright.holders.df,
+                         by = c("arrangement.id")) %>%
+              inner_join(copyright.holders.df,
+                         by = c("copyright.holder.id")) %>%
+              group_by(arrangement.id) %>%
+              summarise(year.string = paste(unique(copyright.year),
+                                            collapse = ", "),
+                        holder.string = paste(copyright.holder.name,
+                                              collapse = ", ")) %>%
+              ungroup() %>%
+              mutate(arrangement.copyright = paste(ifelse(holder.string == "public domain",
+                                                         "", "© "),
+                                                  ifelse(year.string == "NA",
+                                                         "",
+                                                         paste(year.string,
+                                                               " ",
+                                                               sep = "")),
+                                                  holder.string,
+                                                  sep = "")),
+            by = c("arrangement.id")) %>%
+  left_join(songbook.entries.df %>%
+              group_by(song.instance.id) %>%
+              summarise(num.entries = n()),
+            by = c("song.instance.id")) %>%
+  mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
+                       NA, pmax(last.lyrics.year, last.tune.year)),
+         decade = floor(year / 10) * 10) %>%
+  dplyr::select(song.id, song.instance.id, title = song.instance, year, decade,
+                songbook.entries, arrangement.types, key.signatures,
+                time.signatures, scripture.references, lyricists, composers,
+                arrangers, lyrics.copyright, tune.copyright,
+                arrangement.copyright, num.entries)
+Encoding(song.instance.info.df$title) = "UTF-8"
+Encoding(song.instance.info.df$key.signatures) = "UTF-8"
+Encoding(song.instance.info.df$lyricists) = "UTF-8"
+Encoding(song.instance.info.df$composers) = "UTF-8"
+Encoding(song.instance.info.df$arrangers) = "UTF-8"
+Encoding(song.instance.info.df$lyrics.copyright) = "UTF-8"
+Encoding(song.instance.info.df$tune.copyright) = "UTF-8"
+Encoding(song.instance.info.df$arrangement.copyright) = "UTF-8"
 
 # Get lyrics first lines for all song instances
-allSongInstanceLyrics = inner_join(songinstances.lyrics.tab, lyrics.tab) %>%
-  select(SongInstanceID, FirstLine, RefrainFirstLine) %>%
-  gather(Source, LyricsLine, -SongInstanceID)
-
-########################
-# Get lyrics full text #
-########################
-
-# lyrics.full.text = readtext("song_database_lyrics/*.xml",
-#                             text_field = "(//verse | //refrain | //prerefrain | //bridge | //soprano | //alto | //tenor | //bass)",
-#                             verbosity = 1)
-# lyrics.full.text$text = stri_replace_all_regex(lyrics.full.text$text, "^\n|\n$", "")
-# lyrics.full.text$text = stri_replace_all_regex(lyrics.full.text$text, "\n\n", "\n")
-# lyrics.full.text = corpus(lyrics.full.text)
-# docvars(lyrics.full.text, "language") = NA
-# docvars(lyrics.full.text, "year") = NA
-# for(i in 1:nrow(lyrics.full.text$documents)) {
-#   lyrics.file = docvars(lyrics.full.text)$doc_id[i]
-#   #print(lyrics.file)
-#   lyrics.entry = lyrics.tab[lyrics.tab$FileName == lyrics.file & !is.na(lyrics.tab$FileName),]
-#   #print(lyrics.entry)
-#   docnames(lyrics.full.text)[i] = paste("LyricsID", lyrics.entry$LyricsID, sep = "")
-#   docvars(lyrics.full.text)$language[i] = languages.tab$LanguageName[languages.tab$LanguageID == lyrics.entry$LanguageID]
-#   docvars(lyrics.full.text)$year[i] = lyrics.entry$CopyrightYear
-#   #print("")
-# }
-# rm(i, lyrics.file, lyrics.entry)
-# lyrics.full.text.english = corpus_subset(lyrics.full.text, language == "English")
-# english.stopwords = stopwords("english")
-# english.stopwords = c(english.stopwords, c("o", "us", "shall", "thee", "can", "thy", "thou", "may", "ye", "thine", "art", "hath", "hast", "doth", "dost", "doeth", "doest", "wouldst", "wouldest", "shouldst", "shouldest", "couldst", "couldest", "oughtst", "oughtest", "whence", "willst", "wilt"))
-# lyrics.full.text.english.dfm = dfm(lyrics.full.text.english, remove_punct = T, remove = english.stopwords, stem = T)
+all.song.instance.lyrics.df = song.instances.lyrics.df %>%
+  inner_join(lyrics.df, by = c("lyrics.id")) %>%
+  dplyr::select(song.instance.id, first.line, refrain.first.line) %>%
+  gather(source, lyrics.line, -song.instance.id)
