@@ -198,7 +198,8 @@ server <- function(input, output, session) {
     # Filter the songs
     source("filter_results.R", local = T)
     # Order the results
-    results.df = inner_join(results.df, songs.df) %>%
+    results.df = inner_join(results.df, songs.df,
+                            by = c("song.id", "song.name")) %>%
       arrange(song.name.sort)
     # Return the results
     results.df

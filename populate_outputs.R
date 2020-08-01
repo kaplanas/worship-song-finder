@@ -10,7 +10,7 @@ song.year.breaks = seq(floor(min(song.info.df$year, na.rm = T) / 10) * 10,
 output$recentSongList <- renderTable({
   recent.songs.df = inner_join(worship.history.df, song.instances.df,
                                   by = "song.instance.id") %>%
-    inner_join(worship.slots.df) %>%
+    inner_join(worship.slots.df, by = "worship.slot.id") %>%
     filter(worship.history.date >= input$recentSongsDateRange[1],
            worship.history.date <= input$recentSongsDateRange[2]) %>%
     mutate(Date = format(worship.history.date, date.output.format),
@@ -155,11 +155,13 @@ output$topicBySongbook <- renderPlot({
                             by = "song.instance.id") %>%
                    inner_join(songbooks.df, by = "songbook.id") %>%
                    group_by(songbook.name) %>%
-                   summarize(songbook.total = n_distinct(song.id))) %>%
+                   summarize(songbook.total = n_distinct(song.id)),
+                 by = "songbook.name") %>%
       mutate(prop.songs = num.songs / songbook.total)
     songbook.topic.sum.df = songbook.topic.sum.df %>%
       inner_join(group_by(songbook.topic.sum.df, topic.name) %>%
-                   summarize(mean.prop = mean(prop.songs))) %>%
+                   summarize(mean.prop = mean(prop.songs)),
+                 by = "topic.name") %>%
       mutate(diff = prop.songs - mean.prop)
     if(input$songbookTopicOptions == "Number of songs") {
       songbook.topic.sum.df = arrange(songbook.topic.sum.df, songbook.name,
@@ -211,14 +213,17 @@ output$arrangementTypeBySongbook <- renderPlot({
       summarize(num.songs = n_distinct(song.name)) %>%
       ungroup %>%
       complete(songbook.name, arrangement.type, fill = list(num.songs = 0)) %>%
-      inner_join(inner_join(songbook.entries.df, song.instances.df) %>%
+      inner_join(inner_join(songbook.entries.df, song.instances.df,
+                            by = "song.instance.id") %>%
                    inner_join(songbooks.df, by = "songbook.id") %>%
                    group_by(songbook.name) %>%
-                   summarize(songbook.total = n_distinct(song.id))) %>%
+                   summarize(songbook.total = n_distinct(song.id)),
+                 by = "songbook.name") %>%
       mutate(prop.songs = num.songs / songbook.total)
     songbook.arrangement.type.sum.df = songbook.arrangement.type.sum.df %>%
       inner_join(group_by(songbook.arrangement.type.sum.df, arrangement.type) %>%
-                   summarize(mean.prop = mean(prop.songs))) %>%
+                   summarize(mean.prop = mean(prop.songs)),
+                 by = "arrangement.type") %>%
       mutate(diff = prop.songs - mean.prop)
     if(input$songbookArrangementTypeOptions == "Number of songs") {
       songbook.arrangement.type.sum.df = arrange(songbook.arrangement.type.sum.df,
@@ -265,7 +270,8 @@ output$topicsOverTime <- renderPlot({
       ungroup %>%
       complete(topic.name, decade, fill = list(num.songs = 0)) %>%
       inner_join(group_by(song.info.df, decade) %>%
-                   summarize(decade.total = n())) %>%
+                   summarize(decade.total = n()),
+                 by = "decade") %>%
       mutate(prop = num.songs / decade.total,
              lower = binom.confint(num.songs, decade.total, 0.95, "exact")$lower,
              upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper)
@@ -295,7 +301,8 @@ output$scriptureReferencesOverTime <- renderPlot({
       ungroup %>%
       complete(book.name, decade, fill = list(num.songs = 0)) %>%
       inner_join(group_by(song.info.df, decade) %>%
-                   summarize(decade.total = n())) %>%
+                   summarize(decade.total = n()),
+                 by = "decade") %>%
       mutate(prop = num.songs / decade.total,
              lower = binom.confint(num.songs, decade.total, 0.95, "exact")$lower,
              upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper)
@@ -361,7 +368,8 @@ output$genderOverTime <- renderPlot({
       ungroup %>%
       complete(gender.name, decade, fill = list(num.songs = 0)) %>%
       inner_join(group_by(song.info.df, decade) %>%
-                   summarize(decade.total = n())) %>%
+                   summarize(decade.total = n()),
+                 by = "decade") %>%
       mutate(prop = num.songs / decade.total,
              lower = binom.confint(num.songs, decade.total, 0.95, "exact")$lower,
              upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper)
