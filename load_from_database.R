@@ -29,12 +29,11 @@ Encoding(song.instances.df$song.instance) = "UTF-8"
 # Get lyrics table
 lyrics.df = dbGetQuery(wsf.con,
                        "SELECT LyricsID, FirstLine, RefrainFirstLine,
-                               CopyrightYear, LanguageID, FileName
+                               CopyrightYear, LanguageID
                         FROM lyrics") %>%
   dplyr::select(lyrics.id = LyricsID, first.line = FirstLine,
                 refrain.first.line = RefrainFirstLine,
-                copyright.year = CopyrightYear, language.id = LanguageID,
-                file.name = FileName)
+                copyright.year = CopyrightYear, language.id = LanguageID)
 Encoding(lyrics.df$first.line) = "UTF-8"
 Encoding(lyrics.df$refrain.first.line) = "UTF-8"
 
@@ -57,13 +56,15 @@ arrangements.df = dbGetQuery(wsf.con,
 
 # Get artists table
 artists.df = dbGetQuery(wsf.con,
-                        "SELECT ArtistID, LastName, FirstName, Gender
-                         FROM artists") %>%
+                        "SELECT ArtistID, LastName, FirstName, GenderName
+                         FROM artists
+                              JOIN genders
+                              ON artists.GenderID = genders.GenderID") %>%
   mutate(artist.name = case_when(is.na(FirstName) ~ LastName,
                                  T ~ paste(FirstName, LastName,
                                            sep = " "))) %>%
   dplyr::select(artist.id = ArtistID, last.name = LastName,
-                first.name = FirstName, artist.name, gender = Gender)
+                first.name = FirstName, artist.name, gender = GenderName)
 Encoding(artists.df$last.name) = "UTF-8"
 Encoding(artists.df$first.name) = "UTF-8"
 
