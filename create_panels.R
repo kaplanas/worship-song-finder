@@ -89,30 +89,30 @@ worship.slot.list = worship.slots.df %>%
 # Song title filter
 song.title.filter = tabPanel("Song title",
                              div(id = "songTitleFilter",
-                                 radioButtons("songTitleOptions", NA,
+                                 radioButtons("songTitleOptions", NULL,
                                               choices = c("Parts", "Whole words", "String")),
-                                 textInput("songTitle", NA))
+                                 textInput("songTitle", NULL))
                              )
 
 # Artist name filter
 artist.name.filter = tabPanel("Artist name",
-                              radioButtons("artistNameOptions", NA,
+                              radioButtons("artistNameOptions", NULL,
                                            choices = c("Lyrics", "Music", "Arrangement", "Any")),
-                              textInput("artistName", NA)
+                              textInput("artistName", NULL)
                               )
 
 # Topic filter
 topic.filter = tabPanel("Topic",
-                        radioButtons("topicOptions", NA,
+                        radioButtons("topicOptions", NULL,
                                      choices = c("Match any", "Match all")),
-                        checkboxGroupInput("topicChoices", NA,
+                        checkboxGroupInput("topicChoices", NULL,
                                            choiceNames = topic.list$topic.name,
                                            choiceValues = topic.list$topic.id)
                         )
 
 # Scripture reference filter
 scripture.reference.filter = tabPanel("Scripture reference",
-                                      radioButtons("scriptureOptions", NA,
+                                      radioButtons("scriptureOptions", NULL,
                                                    choices = c("Single verse", "Range")),
                                       selectInput("scriptureBook", "Book:",
                                                   choices = book.list),
@@ -124,54 +124,54 @@ scripture.reference.filter = tabPanel("Scripture reference",
 
 # Language filter
 language.filter = tabPanel("Language",
-                           radioButtons("languageOptions", NA,
+                           radioButtons("languageOptions", NULL,
                                         choices = c("Match any", "Match all")),
-                           checkboxGroupInput("languageChoices", NA,
+                           checkboxGroupInput("languageChoices", NULL,
                                               choiceNames = language.list$language.name,
                                               choiceValues = language.list$language.id)
                            )
 
 # Songbook filter
 songbook.filter= tabPanel("Songbook",
-                          radioButtons("songbookOptions", NA,
+                          radioButtons("songbookOptions", NULL,
                                        choices = c("Match any", "Match all")),
-                          checkboxGroupInput("songbookChoices", NA,
+                          checkboxGroupInput("songbookChoices", NULL,
                                              choiceNames = songbook.list$songbook.name,
                                              choiceValues = songbook.list$songbook.id)
                           )
 
 # Arrangement type filter
 arrangement.type.filter = tabPanel("Arrangement type",
-                                   radioButtons("arrangementOptions", NA,
+                                   radioButtons("arrangementOptions", NULL,
                                                 choices = c("Include", "Exclude")),
-                                   checkboxGroupInput("arrangementChoices", NA,
+                                   checkboxGroupInput("arrangementChoices", NULL,
                                                       choiceNames = arrangement.list$arrangement.type,
                                                       choiceValues = arrangement.list$arrangement.type.id)
                                    )
 
 # Key signature filter
 key.signature.filter = tabPanel("Key signature",
-                                radioButtons("keyOptions", NA,
+                                radioButtons("keyOptions", NULL,
                                              choices = c("Match any", "Match all")),
-                                checkboxGroupInput("keyChoices", NA,
+                                checkboxGroupInput("keyChoices", NULL,
                                                    choiceNames = key.signature.list$key.signature.string,
                                                    choiceValues = key.signature.list$key.signature.id)
                                 )
 
 # Time signature filter
 time.signature.filter = tabPanel("Time signature",
-                                 radioButtons("timeOptions", NA,
+                                 radioButtons("timeOptions", NULL,
                                               choices = c("Match any", "Match all")),
-                                 checkboxGroupInput("timeChoices", NA,
+                                 checkboxGroupInput("timeChoices", NULL,
                                                     choiceNames = time.signature.list$time.signature.string,
                                                     choiceValues = time.signature.list$time.signature.id)
                                  )
 
 # Meter filter
 meter.filter = tabPanel("Meter",
-                        radioButtons("meterOptions", NA,
+                        radioButtons("meterOptions", NULL,
                                      choices = c("Match any", "Match all")),
-                        checkboxGroupInput("meterChoices", NA,
+                        checkboxGroupInput("meterChoices", NULL,
                                            choiceNames = meter.list$meter,
                                            choiceValues = meter.list$meter.id)
 )
