@@ -14,6 +14,8 @@ library(binom)
 source("database_connection_local.R", local = T)
 #source("database_connection.R", local = T)
 
+#### Useful initial settings ####
+
 # Connect to the database
 wsf.con = dbConnect(MySQL(), user = db.user, password = db.password,
                     dbname = db.name, host = db.host)
@@ -32,6 +34,8 @@ date.input.start = seq(Sys.Date(), length = 7, by = "-1 month")[7]
 
 # Create content panels
 source("create_panels.R", local = T)
+
+#### UI ####
 
 # Define UI
 ui <- navbarPage(
@@ -121,6 +125,8 @@ ui <- navbarPage(
   )
   
 )
+
+#### Server ####
 
 # Define server logic
 server <- function(input, output, session) {
@@ -236,6 +242,8 @@ server <- function(input, output, session) {
   source("populate_outputs.R", local = T)
   
 }
+
+#### Run ####
 
 # Run the application 
 shinyApp(ui = ui, server = server)

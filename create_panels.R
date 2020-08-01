@@ -1,6 +1,4 @@
-####################################
-# Get lists for populating filters #
-####################################
+#### Get lists for populating filters ####
 
 # A string for indicating that nothing is selected
 none.selected.string = "[None selected]"
@@ -82,9 +80,7 @@ worship.slot.list = worship.slots.df %>%
   filter(!is.element(worship.slot.id, c(4, 5))) %>%
   select(worship.slot.id, worship.slot)
 
-########################
-# Create filter panels #
-########################
+#### Create filter panels ####
 
 # Song title filter
 song.title.filter = tabPanel("Song title",
@@ -176,9 +172,7 @@ meter.filter = tabPanel("Meter",
                                            choiceValues = meter.list$meter.id)
 )
 
-#############################
-# Create other input panels #
-#############################
+#### Create other input panels ####
 
 # Recent songs panel
 recent.songs.panel = tabPanel("Recent songs",
@@ -305,9 +299,7 @@ change.over.time.panel = tabPanel("Change over time",
                                   )
                                   )
 
-########################
-# Create output panels #
-########################
+#### Create output panels ####
 
 # Get titles for content panels for all songs
 all.song.panel.titles = lapply(

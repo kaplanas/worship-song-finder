@@ -2,9 +2,7 @@
 song.year.breaks = seq(floor(min(song.info.df$year, na.rm = T) / 10) * 10,
                        ceiling(max(song.info.df$year, na.rm = T) / 10) * 10, 10)
 
-####################################
-# Populate worship history outputs #
-####################################
+#### Populate worship history outputs ####
 
 # Populate the list of recent songs
 output$recentSongList <- renderTable({
@@ -98,9 +96,7 @@ output$songsByYear <- renderPlot({
           axis.text = element_text(size = 14))
 })
 
-##################################
-# Populate song analysis outputs #
-##################################
+#### Populate song analysis outputs ####
 
 # Create the bar plot of song year by songbook
 output$yearBySongbook <- renderPlot({

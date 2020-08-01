@@ -1,6 +1,4 @@
-#####################################
-# Download tables from the database #
-#####################################
+#### Download tables from the database ####
 
 # Get songs table
 songs.df = dbGetQuery(wsf.con,
@@ -284,9 +282,7 @@ song.instances.key.signatures.df = dbGetQuery(wsf.con,
   dplyr::select(song.instance.id = SongInstanceID,
                 key.signature.id = KeySignatureID)
 
-#########################################
-# Collect song info into pretty formats #
-#########################################
+#### Collect song info into pretty formats ####
 
 # Function that turns a list of integers into a string with ranges.
 ints.to.range = function(ints) {
