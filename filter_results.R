@@ -46,7 +46,7 @@ if(input$artistName != "") {
   if(is.element(input$artistNameOptions, c("Arrangement", "Any"))) {
     results.arrangement.df = inner_join(results.df, song.instances.df,
                                         by = "song.id") %>%
-      inner_join(arrangements.artists.df, by = "artist.id") %>%
+      inner_join(arrangements.artists.df, by = "arrangement.id") %>%
       select(song.id, song.name, artist.id) %>%
       distinct
   }
