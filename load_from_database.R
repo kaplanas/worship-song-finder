@@ -367,11 +367,13 @@ lyrics.first.lines.df = dbGetQuery(wsf.con, lyrics.first.lines.sql) %>%
 Encoding(lyrics.first.lines.df$lyrics.line) = "UTF-8"
 
 # Get table of worship slots
-worship.slots.sql = "SELECT WorshipSlotID, WorshipSlot, WorshipSlotOrder
-                     FROM worshipslots"
-worship.slots.df = dbGetQuery(wsf.con, worship.slots.sql) %>%
-  dplyr::select(worship.slot.id = WorshipSlotID, worship.slot = WorshipSlot,
-                worship.slot.order = WorshipSlotOrder)
+if(version == "ctcc") {
+  worship.slots.sql = "SELECT WorshipSlotID, WorshipSlot, WorshipSlotOrder
+                       FROM worshipslots"
+  worship.slots.df = dbGetQuery(wsf.con, worship.slots.sql) %>%
+    dplyr::select(worship.slot.id = WorshipSlotID, worship.slot = WorshipSlot,
+                  worship.slot.order = WorshipSlotOrder)
+}
 
 #### Collect song info into pretty formats ####
 

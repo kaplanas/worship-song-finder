@@ -65,10 +65,12 @@ meter.list = song.instances.meters.df %>%
   select(meter.id, meter)
 
 # Worship slots
-worship.slot.list = worship.slots.df %>%
-  arrange(worship.slot.order) %>%
-  filter(!is.element(worship.slot.id, c(4, 5))) %>%
-  select(worship.slot.id, worship.slot)
+if(version == "ctcc") {
+  worship.slot.list = worship.slots.df %>%
+    arrange(worship.slot.order) %>%
+    filter(!is.element(worship.slot.id, c(4, 5))) %>%
+    select(worship.slot.id, worship.slot)
+}
 
 #### Create filter panels ####
 
@@ -164,63 +166,67 @@ meter.filter = tabPanel("Meter",
 
 #### Create other input panels ####
 
-# Recent songs panel
-recent.songs.panel = tabPanel("Recent songs",
-                              dateRangeInput("recentSongsDateRange",
-                                             "Date range:",
-                                             separator = date.input.sep,
-                                             format = date.input.format,
-                                             min = date.input.min,
-                                             start = date.input.start),
-                              tableOutput("recentSongList")
-                              )
+if(version == "ctcc") {
 
-# Frequent songs panel
-frequent.songs.panel = tabPanel("Frequent songs",
-                                fluidRow(column(5,
-                                                dateRangeInput("frequentSongsDateRange",
-                                                               "Date range:",
-                                                               separator = date.input.sep,
-                                                               format = date.input.format,
-                                                               min = date.input.min,
-                                                               start = date.input.start)),
-                                         column(5,
-                                                numericInput("frequentSongsCutoff",
-                                                             "Songs sung at least this many times:",
-                                                             value = 2,
-                                                             min = 1))),
-                                tableOutput("frequentSongList")
+  # Recent songs panel
+  recent.songs.panel = tabPanel("Recent songs",
+                                dateRangeInput("recentSongsDateRange",
+                                               "Date range:",
+                                               separator = date.input.sep,
+                                               format = date.input.format,
+                                               min = date.input.min,
+                                               start = date.input.start),
+                                tableOutput("recentSongList")
                                 )
-
-# Frequent topics panel
-frequent.topics.panel = tabPanel("Frequent topics",
-                                 fluidRow(column(5,
-                                                 dateRangeInput("recentTopicsDateRange",
-                                                                "Date range:",
-                                                                separator = date.input.sep,
-                                                                format = date.input.format,
-                                                                min = date.input.min,
-                                                                start = date.input.start)),
-                                          column(5,
-                                                 pickerInput("recentTopicSlots",
-                                                             "Separate by position in service:",
-                                                             multiple = T,
-                                                             options = list(`actions-box` = TRUE),
-                                                             choices = worship.slot.list$worship.slot))),
-                                 plotOutput("frequentTopicPlot",
-                                            height = "1000px")
+  
+  # Frequent songs panel
+  frequent.songs.panel = tabPanel("Frequent songs",
+                                  fluidRow(column(5,
+                                                  dateRangeInput("frequentSongsDateRange",
+                                                                 "Date range:",
+                                                                 separator = date.input.sep,
+                                                                 format = date.input.format,
+                                                                 min = date.input.min,
+                                                                 start = date.input.start)),
+                                           column(5,
+                                                  numericInput("frequentSongsCutoff",
+                                                               "Songs sung at least this many times:",
+                                                               value = 2,
+                                                               min = 1))),
+                                  tableOutput("frequentSongList")
+                                  )
+  
+  # Frequent topics panel
+  frequent.topics.panel = tabPanel("Frequent topics",
+                                   fluidRow(column(5,
+                                                   dateRangeInput("recentTopicsDateRange",
+                                                                  "Date range:",
+                                                                  separator = date.input.sep,
+                                                                  format = date.input.format,
+                                                                  min = date.input.min,
+                                                                  start = date.input.start)),
+                                            column(5,
+                                                   pickerInput("recentTopicSlots",
+                                                               "Separate by position in service:",
+                                                               multiple = T,
+                                                               options = list(`actions-box` = TRUE),
+                                                               choices = worship.slot.list$worship.slot))),
+                                   plotOutput("frequentTopicPlot",
+                                              height = "1000px")
+                                   )
+  
+  # Songs by year panel
+  songs.by.year.panel = tabPanel("Songs by year",
+                                 dateRangeInput("songYearDateRange",
+                                                "Date range:",
+                                                separator = date.input.sep,
+                                                format = date.input.format,
+                                                min = date.input.min,
+                                                start = date.input.start),
+                                 plotOutput("songsByYear")
                                  )
 
-# Songs by year panel
-songs.by.year.panel = tabPanel("Songs by year",
-                               dateRangeInput("songYearDateRange",
-                                              "Date range:",
-                                              separator = date.input.sep,
-                                              format = date.input.format,
-                                              min = date.input.min,
-                                              start = date.input.start),
-                               plotOutput("songsByYear")
-                               )
+}
 
 # Songbook comparison panel
 songbook.comparison.panel = tabPanel("Songbook comparison",

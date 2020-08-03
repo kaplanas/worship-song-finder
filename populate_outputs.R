@@ -4,96 +4,100 @@ song.year.breaks = seq(floor(min(song.info.df$year, na.rm = T) / 10) * 10,
 
 #### Populate worship history outputs ####
 
-# Populate the list of recent songs
-output$recentSongList <- renderTable({
-  recent.songs.df = worship.history.df %>%
-    inner_join(song.instances.df, by = "song.instance.id") %>%
-    inner_join(worship.slots.df, by = "worship.slot.id") %>%
-    filter(worship.history.date >= input$recentSongsDateRange[1],
-           worship.history.date <= input$recentSongsDateRange[2]) %>%
-    mutate(Date = format(worship.history.date, date.output.format),
-           Song = song.instance,
-           Position = worship.slot) %>%
-    arrange(desc(worship.history.date), worship.history.id) %>%
-    dplyr::select(Date, Song, Position)
-})
+if(version == "ctcc") {
 
-# Populate the list of frequent songs
-output$frequentSongList <- renderTable({
-  frequent.songs.df = worship.history.df %>%
-    inner_join(song.instances.df, by = "song.instance.id") %>%
-    inner_join(songs.df, by = "song.id") %>%
-    arrange(desc(worship.history.date), worship.history.id) %>%
-    filter(worship.history.date >= input$frequentSongsDateRange[1],
-           worship.history.date <= input$frequentSongsDateRange[2]) %>%
-    select(song.name, worship.history.date) %>%
-    group_by(song.name) %>%
-    summarise(num.times = n_distinct(worship.history.date),
-              last.sung = max(worship.history.date)) %>%
-    filter(num.times >= input$frequentSongsCutoff) %>%
-    arrange(desc(num.times), desc(last.sung), song.name) %>%
-    mutate(Song = song.name,
-           "Number of times sung" = num.times,
-           "Last sung" = format(last.sung, "%B %e, %Y")) %>%
-    dplyr::select(Song, "Number of times sung", "Last sung")
-}, digits = 0, align = 'lcl')
+  # Populate the list of recent songs
+  output$recentSongList <- renderTable({
+    recent.songs.df = worship.history.df %>%
+      inner_join(song.instances.df, by = "song.instance.id") %>%
+      inner_join(worship.slots.df, by = "worship.slot.id") %>%
+      filter(worship.history.date >= input$recentSongsDateRange[1],
+             worship.history.date <= input$recentSongsDateRange[2]) %>%
+      mutate(Date = format(worship.history.date, date.output.format),
+             Song = song.instance,
+             Position = worship.slot) %>%
+      arrange(desc(worship.history.date), worship.history.id) %>%
+      dplyr::select(Date, Song, Position)
+  })
+  
+  # Populate the list of frequent songs
+  output$frequentSongList <- renderTable({
+    frequent.songs.df = worship.history.df %>%
+      inner_join(song.instances.df, by = "song.instance.id") %>%
+      inner_join(songs.df, by = "song.id") %>%
+      arrange(desc(worship.history.date), worship.history.id) %>%
+      filter(worship.history.date >= input$frequentSongsDateRange[1],
+             worship.history.date <= input$frequentSongsDateRange[2]) %>%
+      select(song.name, worship.history.date) %>%
+      group_by(song.name) %>%
+      summarise(num.times = n_distinct(worship.history.date),
+                last.sung = max(worship.history.date)) %>%
+      filter(num.times >= input$frequentSongsCutoff) %>%
+      arrange(desc(num.times), desc(last.sung), song.name) %>%
+      mutate(Song = song.name,
+             "Number of times sung" = num.times,
+             "Last sung" = format(last.sung, "%B %e, %Y")) %>%
+      dplyr::select(Song, "Number of times sung", "Last sung")
+  }, digits = 0, align = 'lcl')
+  
+  # Create the plot of frequent topics
+  output$frequentTopicPlot <- renderPlot({
+    frequent.topics.df = worship.history.df %>%
+      inner_join(song.instances.df, by = "song.instance.id") %>%
+      inner_join(songs.topics.df, by = "song.id") %>%
+      inner_join(topics.df, by = "topic.id") %>%
+      mutate(new.worship.slot.id = ifelse(is.element(worship.slot.id, c(4, 5)), 3,
+                                          worship.slot.id)) %>%
+      inner_join(worship.slots.df,
+                 by = c("new.worship.slot.id" = "worship.slot.id")) %>%
+      filter(worship.history.date >= input$songYearDateRange[1],
+             worship.history.date <= input$songYearDateRange[2]) %>%
+      dplyr::select(song.id, topic.name, worship.history.date, worship.slot.id,
+                    worship.slot) %>%
+      distinct()
+    frequent.topics.df$worship.slot = factor(frequent.topics.df$worship.slot,
+                                             levels = worship.slots.df$worship.slot)
+    if(length(input$recentTopicSlots) > 0) {
+      frequent.topics.df = frequent.topics.df %>%
+        filter(worship.slot %in% input$recentTopicSlots)
+    }
+    g = ggplot(frequent.topics.df,
+               aes(x = reorder(topic.name, table(topic.name)[topic.name]))) +
+      geom_bar() +
+      coord_flip() +
+      xlab("Topic") +
+      ylab("Number of songs") +
+      theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14),
+            axis.ticks.x = element_blank())
+    if(length(input$recentTopicSlots) > 0) {
+      g = g +
+        facet_grid(. ~ worship.slot) +
+        theme(axis.text.x = element_blank())
+    }
+    g
+  })
+  
+  # Create the plot of songs by year
+  output$songsByYear <- renderPlot({
+    song.years.df = song.instance.info.df %>%
+      inner_join(worship.history.df, by = "song.instance.id") %>%
+      filter(worship.history.date >= input$songYearDateRange[1],
+             worship.history.date <= input$songYearDateRange[2],
+             !is.na(year)) %>%
+      inner_join(song.instances.languages.df, by = "song.instance.id") %>%
+      filter(language.id == 1) %>%
+      dplyr::select(year, title, worship.history.date) %>%
+      distinct()
+    ggplot(song.years.df, aes(x = year)) +
+      geom_histogram(breaks = song.year.breaks) +
+      xlab("Year written") +
+      ylab("Number of songs") +
+      theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14))
+  })
 
-# Create the plot of frequent topics
-output$frequentTopicPlot <- renderPlot({
-  frequent.topics.df = worship.history.df %>%
-    inner_join(song.instances.df, by = "song.instance.id") %>%
-    inner_join(songs.topics.df, by = "song.id") %>%
-    inner_join(topics.df, by = "topic.id") %>%
-    mutate(new.worship.slot.id = ifelse(is.element(worship.slot.id, c(4, 5)), 3,
-                                        worship.slot.id)) %>%
-    inner_join(worship.slots.df,
-               by = c("new.worship.slot.id" = "worship.slot.id")) %>%
-    filter(worship.history.date >= input$songYearDateRange[1],
-           worship.history.date <= input$songYearDateRange[2]) %>%
-    dplyr::select(song.id, topic.name, worship.history.date, worship.slot.id,
-                  worship.slot) %>%
-    distinct()
-  frequent.topics.df$worship.slot = factor(frequent.topics.df$worship.slot,
-                                           levels = worship.slots.df$worship.slot)
-  if(length(input$recentTopicSlots) > 0) {
-    frequent.topics.df = frequent.topics.df %>%
-      filter(worship.slot %in% input$recentTopicSlots)
-  }
-  g = ggplot(frequent.topics.df,
-             aes(x = reorder(topic.name, table(topic.name)[topic.name]))) +
-    geom_bar() +
-    coord_flip() +
-    xlab("Topic") +
-    ylab("Number of songs") +
-    theme(axis.title = element_text(size = 16),
-          axis.text = element_text(size = 14),
-          axis.ticks.x = element_blank())
-  if(length(input$recentTopicSlots) > 0) {
-    g = g +
-      facet_grid(. ~ worship.slot) +
-      theme(axis.text.x = element_blank())
-  }
-  g
-})
-
-# Create the plot of songs by year
-output$songsByYear <- renderPlot({
-  song.years.df = song.instance.info.df %>%
-    inner_join(worship.history.df, by = "song.instance.id") %>%
-    filter(worship.history.date >= input$songYearDateRange[1],
-           worship.history.date <= input$songYearDateRange[2],
-           !is.na(year)) %>%
-    inner_join(song.instances.languages.df, by = "song.instance.id") %>%
-    filter(language.id == 1) %>%
-    dplyr::select(year, title, worship.history.date) %>%
-    distinct()
-  ggplot(song.years.df, aes(x = year)) +
-    geom_histogram(breaks = song.year.breaks) +
-    xlab("Year written") +
-    ylab("Number of songs") +
-    theme(axis.title = element_text(size = 16),
-          axis.text = element_text(size = 14))
-})
+}
 
 #### Populate song analysis outputs ####
 
