@@ -107,10 +107,11 @@ Encoding(song.instances.df$arrangement.copyright) = "UTF-8"
 # Get table of artists
 artists.sql = "SELECT ArtistID, LastName, FirstName, GenderName
                FROM artists
-                    JOIN genders
+                    LEFT JOIN genders
                     ON artists.GenderID = genders.GenderID"
 artists.df = dbGetQuery(wsf.con, artists.sql) %>%
   mutate(artist.name = case_when(is.na(FirstName) ~ LastName,
+                                 FirstName == "" ~ LastName,
                                  T ~ paste(FirstName, LastName,
                                            sep = " "))) %>%
   dplyr::select(artist.id = ArtistID, last.name = LastName,
@@ -453,6 +454,7 @@ song.instance.info.df = song.instances.df %>%
               summarise(scripture.references = paste(book.string, collapse = "; ")),
             by = "song.instance.id") %>%
   left_join(song.instances.artists.df %>%
+              filter(role != "lyricist") %>%
               inner_join(artists.df, by = "artist.id") %>%
               dplyr::select(song.instance.id, role, last.name, first.name,
                             artist.name) %>%
@@ -460,9 +462,10 @@ song.instance.info.df = song.instances.df %>%
               group_by(song.instance.id, role) %>%
               arrange(last.name, first.name) %>%
               summarise(artists = paste(artist.name, collapse = ", ")) %>%
+              ungroup() %>%
               pivot_wider(names_from = role, values_from = artists) %>%
-              dplyr::select(song.instance.id, lyricists = lyricist,
-                            composers = composer, arrangers = arranger),
+              dplyr::select(song.instance.id, composers = composer,
+                            arrangers = arranger),
             by = "song.instance.id") %>%
   left_join(song.instances.songbooks.df %>%
               group_by(song.instance.id) %>%
@@ -473,18 +476,75 @@ song.instance.info.df = song.instances.df %>%
          decade = floor(year / 10) * 10) %>%
   dplyr::select(song.id, song.instance.id, title = song.instance, year, decade,
                 songbook.entries, arrangement.types, key.signatures,
-                time.signatures, scripture.references, lyricists, composers,
-                arrangers, lyrics.copyright, tune.copyright,
-                arrangement.copyright, num.entries)
+                time.signatures, scripture.references, composers, arrangers,
+                lyrics.copyright, tune.copyright, arrangement.copyright,
+                num.entries)
 Encoding(song.instance.info.df$title) = "UTF-8"
 Encoding(song.instance.info.df$songbook.entries) = "UTF-8"
 Encoding(song.instance.info.df$key.signatures) = "UTF-8"
-Encoding(song.instance.info.df$lyricists) = "UTF-8"
 Encoding(song.instance.info.df$composers) = "UTF-8"
 Encoding(song.instance.info.df$arrangers) = "UTF-8"
 Encoding(song.instance.info.df$lyrics.copyright) = "UTF-8"
 Encoding(song.instance.info.df$tune.copyright) = "UTF-8"
 Encoding(song.instance.info.df$arrangement.copyright) = "UTF-8"
+
+# Add translators and alterers to lyrics artists
+song.instances.lyrics.sql = "SELECT SongInstanceID, LyricsID
+                             FROM songinstances_lyrics"
+song.instances.lyrics.df = dbGetQuery(wsf.con, song.instances.lyrics.sql) %>%
+  dplyr::select(song.instance.id = SongInstanceID, lyrics.id = LyricsID)
+lyrics.translations.sql = "SELECT lyrics.LyricsID, TranslatedFromID,
+                                  CASE WHEN lyrics.LanguageID = sources.LanguageID
+                                            THEN 'alt'
+                                       ELSE 'tr'
+                                  END AS Type
+                           FROM lyrics
+                                JOIN lyrics_translations
+                                ON lyrics.LyricsID = lyrics_translations.LyricsID
+                                JOIN lyrics sources
+                                ON lyrics_translations.TranslatedFromID = sources.LyricsID"
+lyrics.translations.df = dbGetQuery(wsf.con, lyrics.translations.sql) %>%
+  dplyr::select(lyrics.id = LyricsID, translated.from.id = TranslatedFromID,
+                type = Type)
+lyrics.artists.sql = "SELECT lyrics.LyricsID, ArtistID
+                      FROM lyrics
+                           LEFT JOIN lyrics_artists
+                           ON lyrics.LyricsID = lyrics_artists.LyricsID"
+lyrics.artists.df = dbGetQuery(wsf.con, lyrics.artists.sql) %>%
+  dplyr::select(lyrics.id = LyricsID, artist.id = ArtistID) %>%
+  left_join(artists.df, by = "artist.id") %>%
+  group_by(lyrics.id) %>%
+  arrange(last.name, first.name) %>%
+  summarise(artist.string = paste(artist.name, collapse = ", ")) %>%
+  ungroup() %>%
+  mutate(artist.string = ifelse(artist.string == "NA", NA, artist.string)) %>%
+  left_join(lyrics.translations.df, by = "lyrics.id")
+while(sum(!is.na(lyrics.artists.df$translated.from.id)) > 0) {
+  lyrics.artists.df = lyrics.artists.df %>%
+    left_join(lyrics.artists.df %>%
+                dplyr::select(lyrics.id, new.source.id = translated.from.id,
+                              new.type = type,
+                              source.artist.string = artist.string),
+              by = c("translated.from.id" = "lyrics.id")) %>%
+    mutate(artist.string = case_when(is.na(source.artist.string) ~ artist.string,
+                                     is.na(artist.string) ~ source.artist.string,
+                                     artist.string == source.artist.string ~ artist.string,
+                                     T ~ paste(source.artist.string,
+                                               ", ",
+                                               type,
+                                               ". ",
+                                               artist.string,
+                                               sep = ""))) %>%
+    dplyr::select(lyrics.id, artist.string, translated.from.id = new.source.id,
+                  type = new.type)
+}
+song.instance.info.df = song.instance.info.df %>%
+  left_join(song.instances.lyrics.df %>%
+              inner_join(lyrics.artists.df, by = "lyrics.id") %>%
+              group_by(song.instance.id) %>%
+              summarize(lyricists = paste(artist.string, collapse = "; ")),
+            by = "song.instance.id")
+Encoding(song.instance.info.df$lyricists) = "UTF-8"
 
 # Get info for all songs
 song.info.df = songs.df %>%
