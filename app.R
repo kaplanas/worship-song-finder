@@ -231,7 +231,7 @@ server <- function(input, output, session) {
                              return(tabPanel(title = all.song.panel.titles[[as.character(results.df$song.id[i])]],
                                              all.song.panels[[as.character(results.df$song.id[i])]]))
                            })
-      song.panels[["widths"]] = c(5,7)
+      song.panels[["widths"]] = c(5, 7)
       song.panels[["well"]] = F
       song.panels[["id"]] = "songResultsPanel"
       do.call(navlistPanel, song.panels)

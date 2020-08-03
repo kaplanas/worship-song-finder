@@ -55,7 +55,7 @@ meter.list = meters.df %>%
   gather(song.source, song.id, -meter.id) %>%
   select(meter.id, song.id) %>%
   group_by(meter.id) %>%
-  summarize(num.songs = n()) %>%
+  summarise(num.songs = n()) %>%
   filter(num.songs >= 3,
          meter.id != 1) %>%
   inner_join(meters.df, by = c("meter.id")) %>%
@@ -390,8 +390,8 @@ all.song.panels = lapply(
           panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Arrangement", song.instance.row$arrangement.copyright))
         }
         # Song instances lyrics first lines
-        song.instance.lyrics = all.song.instance.lyrics.df$lyrics.line[all.song.instance.lyrics.df$song.instance.id == songInstanceID &
-                                                                       !is.na(all.song.instance.lyrics.df$lyrics.line)]
+        song.instance.lyrics = lyrics.first.lines.df$lyrics.line[lyrics.first.lines.df$song.instance.id == songInstanceID &
+                                                                 !is.na(lyrics.first.lines.df$lyrics.line)]
         panel.list.to.return = list(panel.list.to.return,
                                     span(lapply(song.instance.lyrics,
                                                 function(lyricsLine) {
