@@ -11,14 +11,14 @@ library(stringi)
 library(gridExtra)
 library(binom)
 
-source("database_connection_local.R", local = T)
-#source("database_connection.R", local = T)
+#source("database_connection_local.R", local = T)
+source("database_connection.R", local = T)
 
 #### Useful initial settings ####
 
 # Connect to the database
 wsf.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                    dbname = db.name, host = db.host)
+                    dbname = db.name, host = db.host, port = 3306)
 on.exit(dbDisconnect(wsf.con), add = T)
 dbGetQuery(wsf.con, "SET NAMES utf8")
 

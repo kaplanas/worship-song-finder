@@ -156,6 +156,13 @@ songs.topics.sql = "SELECT SongID, TopicID
 songs.topics.df = dbGetQuery(wsf.con, songs.topics.sql) %>%
   dplyr::select(song.id = SongID, topic.id = TopicID)
 
+# Get table of books of the Bible
+bible.books.sql = "SELECT BookID, BookName, BookAbbreviation
+                   FROM booksofthebible"
+bible.books.df = dbGetQuery(wsf.con, bible.books.sql) %>%
+  dplyr::select(book.id = BookID, book.name = BookName,
+                book.abbreviation = BookAbbreviation)
+
 # Get table of scripture references
 scripture.references.sql = "SELECT ScriptureReferenceID, booksofthebible.BookID,
                                    BookName, BookAbbreviation, Chapter, Verse
@@ -212,7 +219,7 @@ Encoding(songbooks.df$songbook.abbreviation) = "UTF-8"
 song.instances.songbooks.sql = "SELECT songinstances.SongInstanceID, SongID,
                                        songbooks.SongbookID, SongbookName,
                                        SongbookAbbreviation,
-                                       Songbookvolumes.SongbookVolumeID,
+                                       songbookvolumes.SongbookVolumeID,
                                        SongbookVolume, EntryNumber
                                 FROM songinstances
                                      JOIN songbookentries
@@ -358,6 +365,13 @@ lyrics.first.lines.df = dbGetQuery(wsf.con, lyrics.first.lines.sql) %>%
                values_to = "lyrics.line")
 Encoding(lyrics.first.lines.df$lyrics.line) = "UTF-8"
 
+# Get table of worship slots
+worship.slots.sql = "SELECT WorshipSlotID, WorshipSlot, WorshipSlotOrder
+                     FROM worshipslots"
+worship.slots.df = dbGetQuery(wsf.con, worship.slots.sql) %>%
+  dplyr::select(worship.slot.id = WorshipSlotID, worship.slot = WorshipSlot,
+                worship.slot.order = WorshipSlotOrder)
+
 #### Collect song info into pretty formats ####
 
 # Function that turns a list of integers into a string with ranges.
@@ -450,7 +464,7 @@ song.instance.info.df = song.instances.df %>%
               dplyr::select(song.instance.id, lyricists = lyricist,
                             composers = composer, arrangers = arranger),
             by = "song.instance.id") %>%
-  left_join(songbook.entries.df %>%
+  left_join(song.instances.songbooks.df %>%
               group_by(song.instance.id) %>%
               summarise(num.entries = n()),
             by = c("song.instance.id")) %>%

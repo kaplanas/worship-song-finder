@@ -42,18 +42,8 @@ time.signature.list = time.signatures.df %>%
   select(time.signature.id, time.signature.string)
 
 # Meters
-meter.list = meters.df %>%
-  left_join(lyrics.meters.df, by = c("meter.id")) %>%
-  left_join(song.instances.lyrics.df, by = c("lyrics.id")) %>%
-  left_join(song.instances.df, by = c("song.instance.id")) %>%
-  left_join(tunes.meters.df, by = c("meter.id")) %>%
-  left_join(song.instances.tunes.df, by = c("tune.id")) %>%
-  left_join(song.instances.df,
-            by = c("song.instance.id.x" = "song.instance.id")) %>%
-  filter(is.na(song.id.x) | is.na(song.id.y)) %>%
-  dplyr::select(meter.id, song.id.x, song.id.y) %>%
-  gather(song.source, song.id, -meter.id) %>%
-  select(meter.id, song.id) %>%
+meter.list = song.instances.meters.df %>%
+  dplyr::select(meter.id, song.id) %>%
   group_by(meter.id) %>%
   summarise(num.songs = n()) %>%
   filter(num.songs >= 3,
