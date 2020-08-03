@@ -322,6 +322,7 @@ output$genderOverTime <- renderPlot({
                             (role == "arranger" & "Arrangement" %in% input$genderOverTimeRoles)),
                  by = "song.id") %>%
       inner_join(artists.df, by = "artist.id") %>%
+      filter(gender != "NA") %>%
       group_by(song.id, decade, gender) %>%
       summarise(num.artists = n_distinct(artist.id))
     gender.time.df = gender.time.df %>%

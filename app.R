@@ -11,8 +11,8 @@ library(stringi)
 library(gridExtra)
 library(binom)
 
-#version = "ctcc"
-version = "general"
+version = "ctcc"
+#version = "general"
 
 if(version == "ctcc") {
   source("database_connection.R", local = T)
