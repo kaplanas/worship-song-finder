@@ -11,8 +11,8 @@ library(stringi)
 library(gridExtra)
 library(binom)
 
-version = "ctcc"
-#version = "general"
+#version = "ctcc"
+version = "general"
 
 if(version == "ctcc") {
   source("database_connection.R", local = T)
@@ -23,10 +23,10 @@ if(version == "ctcc") {
 #### Useful initial settings ####
 
 # Connect to the database
-wsf.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                    dbname = db.name, host = db.host, port = 3306)
-on.exit(dbDisconnect(wsf.con), add = T)
-dbGetQuery(wsf.con, "SET NAMES utf8")
+wsf.shiny.con = dbConnect(MySQL(), user = db.user, password = db.password,
+                          dbname = db.name, host = db.host, port = 3306)
+on.exit(dbDisconnect(wsf.shiny.con), add = T)
+dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
 
 # Load stuff from the database
 source("load_from_database.R", local = T)
@@ -108,8 +108,6 @@ help.page = tabPanel("Help",
                                 includeHTML("help/meter_filter.html")),
                        tabPanel("The scripture reference filter",
                                 includeHTML("help/scripture_reference_filter.html")),
-                       tabPanel("Same lyrics/tune/meter",
-                                includeHTML("help/same_lyrics_tune_meter.html")),
                        tabPanel("Who should I contact with questions/comments/complaints/etc.?",
                                 includeHTML("help/contact.html"))
                      )
@@ -142,14 +140,14 @@ server <- function(input, output, session) {
   
   # Get worship history
   if(version == "ctcc") {
-    wsf.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                        dbname = db.name, host = db.host)
-    on.exit(dbDisconnect(wsf.con), add = TRUE)
-    dbGetQuery(wsf.con, "SET NAMES utf8")
-    worship.history.df = dbGetQuery(wsf.con,
-                                    "SELECT WorshipHistoryID, SongInstanceID,
-                                            WorshipHistoryDate, WorshipSlotID
-                                     FROM worshiphistory") %>%
+    wsf.shiny.con = dbConnect(MySQL(), user = db.user, password = db.password,
+                              dbname = db.name, host = db.host)
+    on.exit(dbDisconnect(wsf.shiny.con), add = T)
+    dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
+    worship.history.sql = "SELECT WorshipHistoryID, SongInstanceID,
+                                  WorshipHistoryDate, WorshipSlotID
+                           FROM worshiphistory"
+    worship.history.df = dbGetQuery(wsf.shiny.con, worship.history.sql) %>%
       dplyr::select(worship.history.id = WorshipHistoryID,
                     song.instance.id = SongInstanceID,
                     worship.history.date = WorshipHistoryDate,
@@ -158,7 +156,7 @@ server <- function(input, output, session) {
     worship.history.df = filter(worship.history.df,
                                 format(worship.history.df$worship.history.date, "%Y") >= 2017)
   }
-  
+
   # Populate the scripture filter based on the selected options
   includeScriptureEnd = reactive({
     ifelse(input$scriptureOptions == "Range", T, F)
@@ -206,7 +204,7 @@ server <- function(input, output, session) {
     updateSelectInput(session, "scriptureVerseEnd",
                       choices = dynamicVersesEnd())
   })
-  
+
   # Populate the results list
   get.song.list.results = reactive({
     # Start with a list of all songs
@@ -222,7 +220,7 @@ server <- function(input, output, session) {
     results.df
   })
   output$songList = renderUI({
-    
+
     # Create the list of results
     results.df = get.song.list.results()
     if(nrow(results.df) > 0 &
@@ -248,7 +246,7 @@ server <- function(input, output, session) {
       do.call(navlistPanel, song.panels)
     }
   })
-  
+
   # Populate all other outputs
   source("populate_outputs.R", local = T)
   

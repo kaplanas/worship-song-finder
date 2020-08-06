@@ -326,6 +326,7 @@ all.song.panels = lapply(
       song.topics = p(song.row$topics)
       initial.song.info.to.return[[length(initial.song.info.to.return) + 1]] = song.topics
     }
+    # Song instances
     song.info.to.return = c(initial.song.info.to.return, lapply(
       song.instance.info.df$song.instance.id[song.instance.info.df$song.id == songID],
       function(songInstanceID) {
