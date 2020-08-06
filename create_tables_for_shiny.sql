@@ -202,7 +202,8 @@ DROP TABLE IF EXISTS songbooks;
 CREATE TABLE songbooks AS
 (SELECT SongbookID,
         SongbookName,
-        SongbookAbbreviation
+        SongbookAbbreviation,
+        IncludeInSearch
  FROM wsf.songbooks);
 COMMIT;
 
@@ -214,6 +215,7 @@ CREATE TABLE songinstances_songbooks AS
         songbooks.SongbookID,
         SongbookName,
         SongbookAbbreviation,
+        IncludeInSearch,
         songbookvolumes.SongbookVolumeID,
         SongbookVolume,
         EntryNumber

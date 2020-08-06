@@ -110,23 +110,26 @@ song.instances.languages.df = dbGetQuery(wsf.shiny.con,
                 language.id = LanguageID)
 
 # Get table of songbooks
-songbooks.sql = "SELECT SongbookID, SongbookName, SongbookAbbreviation
+songbooks.sql = "SELECT SongbookID, SongbookName, SongbookAbbreviation,
+                        IncludeInSearch
                  FROM songbooks"
 songbooks.df = dbGetQuery(wsf.shiny.con, songbooks.sql) %>%
+  mutate(include.in.search = IncludeInSearch == "Y") %>%
   dplyr::select(songbook.id = SongbookID, songbook.name = SongbookName,
-                songbook.abbreviation = SongbookAbbreviation)
+                songbook.abbreviation = SongbookAbbreviation, include.in.search)
 Encoding(songbooks.df$songbook.name) = "UTF-8"
 Encoding(songbooks.df$songbook.abbreviation) = "UTF-8"
 
 # Get table that connects song instances and songbooks
 song.instances.songbooks.sql = "SELECT SongInstanceID, SongID, SongbookID,
                                        SongbookName, SongbookAbbreviation,
-                                       SongbookVolumeID, SongbookVolume,
-                                       EntryNumber
+                                       IncludeInSearch, SongbookVolumeID,
+                                       SongbookVolume, EntryNumber
                                 FROM songinstances_songbooks"
 song.instances.songbooks.df = dbGetQuery(wsf.shiny.con,
                                          song.instances.songbooks.sql) %>%
-  mutate(entry.string = paste(SongbookAbbreviation,
+  mutate(include.in.search = IncludeInSearch == "Y",
+         entry.string = paste(SongbookAbbreviation,
                               case_when(is.na(SongbookVolume) ~ "",
                                         SongbookID %in% c(0, 6) ~ "",
                                         T ~ paste(" ",
@@ -140,7 +143,7 @@ song.instances.songbooks.df = dbGetQuery(wsf.shiny.con,
                               sep = "")) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 songbook.id = SongbookID, songbook.name = SongbookName,
-                songbook.abbreviation = SongbookAbbreviation,
+                songbook.abbreviation = SongbookAbbreviation, include.in.search,
                 entry.number = EntryNumber, entry.string)
 Encoding(song.instances.songbooks.df$songbook.name) = "UTF-8"
 Encoding(song.instances.songbooks.df$songbook.abbreviation) = "UTF-8"
@@ -250,6 +253,69 @@ if(version == "ctcc") {
     dplyr::select(worship.slot.id = WorshipSlotID, worship.slot = WorshipSlot,
                   worship.slot.order = WorshipSlotOrder)
   Encoding(worship.slots.df$worship.slot) = "UTF-8"
+}
+
+#### Remove songbooks we don't want to show ####
+
+if(version == "general") {
+  # Songbooks
+  songbooks.df = songbooks.df %>%
+    filter(include.in.search)
+  # Songbook entries
+  song.instances.songbooks.df = song.instances.songbooks.df %>%
+    filter(include.in.search)
+  # Song instances
+  song.instances.df = song.instances.df %>%
+    semi_join(song.instances.songbooks.df %>%
+                dplyr::select(song.instance.id) %>%
+                distinct(),
+              by = "song.instance.id")
+  # Songs
+  songs.df = songs.df %>%
+    semi_join(song.instances.df %>%
+                dplyr::select(song.id) %>%
+                distinct(),
+              by = "song.id")
+  # Artists
+  artists.df = artists.df %>%
+    semi_join(song.instances.artists.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "artist.id")
+  # Topics
+  topics.df = topics.df %>%
+    semi_join(songs.topics.df %>%
+                semi_join(songs.df, by = "song.id"),
+              by = "topic.id")
+  # Scripture references
+  scripture.references.df = scripture.references.df %>%
+    semi_join(song.instances.scripture.references.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "scripture.reference.id")
+  # Languages
+  languages.df = languages.df %>%
+    semi_join(song.instances.languages.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "language.id")
+  # Arrangement types
+  arrangement.types.df = arrangement.types.df %>%
+    semi_join(song.instances.arrangement.types.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "arrangement.type.id")
+  # Key signatures
+  key.signatures.df = key.signatures.df %>%
+    semi_join(song.instances.key.signatures.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "key.signature.id")
+  # Time signatures
+  time.signatures.df = time.signatures.df %>%
+    semi_join(song.instances.time.signatures.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "time.signature.id")
+  # Meters
+  meters.df = meters.df %>%
+    semi_join(song.instances.meters.df %>%
+                semi_join(song.instances.df, by = "song.instance.id"),
+              by = "meter.id")
 }
 
 #### Collect song info into pretty formats ####
