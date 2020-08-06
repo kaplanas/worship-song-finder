@@ -1,6 +1,5 @@
-# Breaks for histograms by song year
-song.year.breaks = seq(floor(min(song.info.df$year, na.rm = T) / 10) * 10,
-                       ceiling(max(song.info.df$year, na.rm = T) / 10) * 10, 10)
+# Breaks for song year axes
+song.year.breaks = seq(1000, 3000, 100)
 
 #### Populate worship history outputs ####
 
@@ -25,13 +24,13 @@ if(version == "ctcc") {
     frequent.songs.df = worship.history.df %>%
       inner_join(song.instances.df, by = "song.instance.id") %>%
       inner_join(songs.df, by = "song.id") %>%
-      arrange(desc(worship.history.date), worship.history.id) %>%
       filter(worship.history.date >= input$frequentSongsDateRange[1],
              worship.history.date <= input$frequentSongsDateRange[2]) %>%
-      select(song.name, worship.history.date) %>%
+      dplyr::select(song.name, worship.history.date) %>%
       group_by(song.name) %>%
       summarise(num.times = n_distinct(worship.history.date),
                 last.sung = max(worship.history.date)) %>%
+      ungroup() %>%
       filter(num.times >= input$frequentSongsCutoff) %>%
       arrange(desc(num.times), desc(last.sung), song.name) %>%
       mutate(Song = song.name,
@@ -101,153 +100,119 @@ if(version == "ctcc") {
 
 #### Populate song analysis outputs ####
 
+# Function that creates a bar plot of Xs by songbook
+bar.plot.by.songbook = function(data, grouping.col, input.vals,
+                                display.options) {
+  if(length(input.vals) > 0) {
+    groups.by.songbook.df = data
+    groups.by.songbook.df$gc = groups.by.songbook.df[,grouping.col]
+    groups.by.songbook.df = groups.by.songbook.df %>%
+      filter(songbook.name %in% input.vals) %>%
+      group_by(songbook.name, gc) %>%
+      summarise(num.songs = n_distinct(song.id)) %>%
+      ungroup() %>%
+      complete(songbook.name, gc, fill = list(num.songs = 0)) %>%
+      group_by(songbook.name) %>%
+      mutate(songbook.total = sum(num.songs)) %>%
+      ungroup() %>%
+      mutate(prop.songs = num.songs / songbook.total) %>%
+      group_by(gc) %>%
+      mutate(mean.prop = mean(prop.songs)) %>%
+      ungroup() %>%
+      mutate(diff = prop.songs - mean.prop)
+    if(display.options == "Number of songs") {
+      groups.by.songbook.df = groups.by.songbook.df %>%
+        arrange(songbook.name, num.songs)
+    } else if(display.options == "Relative number of songs") {
+      groups.by.songbook.df = groups.by.songbook.df %>%
+        arrange(songbook.name, diff)
+    } else {
+      groups.by.songbook.df = groups.by.songbook.df %>%
+        arrange(songbook.name, desc(gc))
+    }
+    groups.by.songbook.df = groups.by.songbook.df %>%
+      mutate(order = row_number())
+    ggplot(groups.by.songbook.df, aes(x = order, y = num.songs, fill = diff)) +
+      geom_bar(stat = "identity", color = "black") +
+      scale_fill_gradient2(name = "",
+                           midpoint = 0) +
+      scale_x_continuous(breaks = groups.by.songbook.df$order,
+                         labels = groups.by.songbook.df$gc,
+                         expand = c(0, 0)) +
+      coord_flip() +
+      facet_wrap(~ songbook.name, scales = "free") +
+      xlab("Topic") +
+      ylab("Number of songs") +
+      theme(legend.position = "none",
+            axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14))
+  }
+}
+
 # Create the bar plot of song year by songbook
 output$yearBySongbook <- renderPlot({
-  songbook.year.df = song.instance.info.df %>%
+  song.instance.info.df %>%
     inner_join(song.instances.songbooks.df, by = "song.instance.id") %>%
-    dplyr::select(song.instance.id, title, year, songbook.id, songbook.name) %>%
+    dplyr::select(song.instance.id, title, decade, songbook.id, songbook.name) %>%
     filter(is.element(songbook.name, input$songbooksToAnalyze),
-           !is.na(year)) %>%
-    distinct()
-  g = ggplot(songbook.year.df,
-             aes(x = year, col = songbook.name, fill = songbook.name)) +
-    labs(fill = "Songbook", color = "Songbook") +
-    xlab("Year written") +
-    ylab("Number of songs") +
+           !is.na(decade)) %>%
+    distinct() %>%
+    ggplot(aes(x = decade, col = songbook.name, fill = songbook.name)) +
+    geom_bar(position = "identity", alpha = 0.1) +
+    scale_x_continuous("Year written", breaks = song.year.breaks) +
+    scale_y_continuous("Number of songs") +
+    scale_color_discrete("Songbook") +
+    scale_fill_discrete("Songbook") +
     theme(axis.title = element_text(size = 16),
-          axis.text = element_text(size = 14))
-  if(input$songbookYearOptions == "Histogram (raw counts)") {
-    g = g +
-      geom_histogram(breaks = song.year.breaks, alpha = 0.1,
-                     position = "identity")
-  }
-  else if(input$songbookYearOptions == "Density (smoothed proportions)") {
-    g = g +
-      geom_density(breaks = song.year.breaks, alpha = 0.1) +
-      theme(axis.ticks.y = element_blank(),
-            axis.text.y = element_blank())
-  }
-  g
+          axis.text = element_text(size = 12))
 })
 
 # Create the bar plot of topic by songbook
 output$topicBySongbook <- renderPlot({
-  if(length(input$songbooksToAnalyze) > 0) {
-    songbook.topic.df = song.instances.df %>%
-      inner_join(song.instances.songbooks.df,
-                 by = c("song.instance.id", "song.id")) %>%
-      inner_join(songs.df, by = "song.id") %>%
-      inner_join(songs.topics.df, by = "song.id") %>%
-      inner_join(topics.df, by = "topic.id") %>%
-      dplyr::select(song.id, song.name, topic.id, topic.name, songbook.id,
-                    songbook.name) %>%
-      filter(songbook.name %in% input$songbooksToAnalyze) %>%
-      distinct()
-    songbook.topic.sum.df = songbook.topic.df %>%
-      group_by(songbook.name, topic.name) %>%
-      summarise(num.songs = n_distinct(song.name)) %>%
-      ungroup %>%
-      complete(songbook.name, topic.name, fill = list(num.songs = 0)) %>%
-      inner_join(song.instances.songbooks.df %>%
-                   group_by(songbook.name) %>%
-                   summarise(songbook.total = n_distinct(song.id)),
-                 by = "songbook.name") %>%
-      mutate(prop.songs = num.songs / songbook.total)
-    songbook.topic.sum.df = songbook.topic.sum.df %>%
-      inner_join(songbook.topic.sum.df %>%
-                   group_by(topic.name) %>%
-                   summarise(mean.prop = mean(prop.songs)),
-                 by = "topic.name") %>%
-      mutate(diff = prop.songs - mean.prop)
-    if(input$songbookTopicOptions == "Number of songs") {
-      songbook.topic.sum.df = songbook.topic.sum.df %>%
-        arrange(songbook.name, num.songs)
-    }
-    else if(input$songbookTopicOptions == "Topic") {
-      songbook.topic.sum.df = songbook.topic.sum.df %>%
-        arrange(songbook.name, desc(topic.name))
-    }
-    else if(input$songbookTopicOptions == "Relative number of songs") {
-      songbook.topic.sum.df = songbook.topic.sum.df %>%
-        arrange(songbook.name, diff)
-    }
-    songbook.topic.sum.df = songbook.topic.sum.df %>%
-      mutate(order = row_number())
-    ggplot(songbook.topic.sum.df, aes(x = order, y = num.songs, fill = diff)) +
-      geom_bar(stat = "identity") +
-      scale_fill_gradient2(name = "",
-                           midpoint = 0) +
-      scale_x_continuous(breaks = songbook.topic.sum.df$order,
-                         labels = songbook.topic.sum.df$topic.name,
-                         expand = c(0, 0)) +
-      coord_flip() +
-      facet_wrap(~ songbook.name, scales = "free") +
-      xlab("Topic") +
-      ylab("Number of songs") +
-      theme(legend.position = "none",
-            axis.title = element_text(size = 16),
-            axis.text = element_text(size = 14))
-  }
+  bar.plot.by.songbook(data = song.instances.songbooks.df %>%
+                         inner_join(songs.topics.df, by = "song.id") %>%
+                         inner_join(topics.df, by = "topic.id"),
+                       grouping.col = "topic.name",
+                       input.vals = input$songbooksToAnalyze,
+                       display.options = input$songbookTopicOptions)
 })
 
 # Create the bar plot of arrangement type by songbook
 output$arrangementTypeBySongbook <- renderPlot({
-  if(length(input$songbooksToAnalyze) > 0) {
-    songbook.arrangement.type.df = song.instances.songbooks.df %>%
-      inner_join(song.instances.arrangement.types.df,
-                 by = c("song.instance.id", "song.id")) %>%
-      inner_join(songs.df, by = "song.id") %>%
-      inner_join(arrangement.types.df, by = "arrangement.type.id") %>%
-      dplyr::select(song.id, song.name, arrangement.type.id, arrangement.type,
-                    songbook.id, songbook.name) %>%
-      filter(songbook.name %in% input$songbooksToAnalyze) %>%
-      distinct()
-    songbook.arrangement.type.sum.df = songbook.arrangement.type.df %>%
-      group_by(songbook.name, arrangement.type) %>%
-      summarise(num.songs = n_distinct(song.name)) %>%
-      ungroup %>%
-      complete(songbook.name, arrangement.type, fill = list(num.songs = 0)) %>%
-      inner_join(song.instances.songbooks.df %>%
-                   group_by(songbook.name) %>%
-                   summarise(songbook.total = n_distinct(song.id)),
-                 by = "songbook.name") %>%
-      mutate(prop.songs = num.songs / songbook.total)
-    songbook.arrangement.type.sum.df = songbook.arrangement.type.sum.df %>%
-      inner_join(songbook.arrangement.type.sum.df %>%
-                   group_by(arrangement.type) %>%
-                   summarise(mean.prop = mean(prop.songs)),
-                 by = "arrangement.type") %>%
-      mutate(diff = prop.songs - mean.prop)
-    if(input$songbookArrangementTypeOptions == "Number of songs") {
-      songbook.arrangement.type.sum.df = songbook.arrangement.type.sum.df %>%
-        arrange(songbook.name, num.songs)
-    }
-    else if(input$songbookArrangementTypeOptions == "Arrangement type") {
-      songbook.arrangement.type.sum.df = songbook.arrangement.type.sum.df %>%
-        arrange(songbook.name, desc(arrangement.type))
-    }
-    else if(input$songbookArrangementTypeOptions == "Relative number of songs") {
-      songbook.arrangement.type.sum.df = songbook.arrangement.type.sum.df %>%
-        arrange(songbook.name, diff)
-    }
-    songbook.arrangement.type.sum.df = songbook.arrangement.type.sum.df %>%
-      mutate(order = row_number())
-    ggplot(songbook.arrangement.type.sum.df,
-           aes(x = order, y = num.songs, fill = diff)) +
-      geom_bar(stat = "identity") +
-      scale_fill_gradient2(name = "",
-                           midpoint = 0) +
-      scale_x_continuous(breaks = songbook.arrangement.type.sum.df$order,
-                         labels = songbook.arrangement.type.sum.df$arrangement.type,
-                         expand = c(0, 0)) +
-      coord_flip() +
-      facet_wrap(~ songbook.name, scales = "free") +
-      xlab("Topic") +
-      ylab("Number of songs") +
-      theme(legend.position = "none",
-            axis.title = element_text(size = 16),
-            axis.text = element_text(size = 14))
-  }
+  bar.plot.by.songbook(data = song.instances.songbooks.df %>%
+                         dplyr::select(song.instance.id, songbook.name) %>%
+                         inner_join(song.instances.arrangement.types.df,
+                                    by = "song.instance.id") %>%
+                         inner_join(arrangement.types.df,
+                                    by = "arrangement.type.id"),
+                       grouping.col = "arrangement.type",
+                       input.vals = input$songbooksToAnalyze,
+                       display.options = input$songbookArrangementTypeOptions)
+})
+
+# Create the bar plot of mode by songbook
+output$modeBySongbook <- renderPlot({
+  bar.plot.by.songbook(data = song.instances.songbooks.df %>%
+                         dplyr::select(song.instance.id, songbook.name) %>%
+                         inner_join(song.instances.key.signatures.df,
+                                    by = "song.instance.id") %>%
+                         inner_join(key.signatures.df, by = "key.signature.id"),
+                       grouping.col = "mode.name",
+                       input.vals = input$songbooksToAnalyze,
+                       display.options = input$songbookModeOptions)
+})
+
+# Create the bar plot of time signature by songbook
+output$timeSignatureBySongbook <- renderPlot({
+  bar.plot.by.songbook(data = song.instances.songbooks.df %>%
+                         dplyr::select(song.instance.id, songbook.name) %>%
+                         inner_join(song.instances.time.signatures.df,
+                                    by = "song.instance.id") %>%
+                         inner_join(time.signatures.df,
+                                    by = "time.signature.id"),
+                       grouping.col = "time.signature.string",
+                       input.vals = input$songbooksToAnalyze,
+                       display.options = input$songbookTimeSignatureOptions)
 })
 
 # Create the line graph of topic frequency over time

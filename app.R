@@ -41,6 +41,9 @@ date.input.start = seq(Sys.Date(), length = 7, by = "-1 month")[7]
 # Create content panels
 source("create_panels.R", local = T)
 
+# Plotting theme
+theme_set(theme_bw())
+
 #### UI ####
 
 # Panels we might or might not include in the UI

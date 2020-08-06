@@ -238,10 +238,6 @@ songbook.comparison.panel = tabPanel("Songbook comparison",
                                                  choices = songbook.list$songbook.name),
                                      tabsetPanel(
                                        tabPanel("Song year",
-                                                radioButtons("songbookYearOptions",
-                                                             "Plot type:",
-                                                             inline = T,
-                                                             choices = c("Histogram (raw counts)", "Density (smoothed proportions)")),
                                                 plotOutput("yearBySongbook")),
                                        tabPanel("Topic",
                                                 radioButtons("songbookTopicOptions",
@@ -258,6 +254,22 @@ songbook.comparison.panel = tabPanel("Songbook comparison",
                                                              choices = c("Number of songs", "Arrangement type", "Relative number of songs")),
                                                 helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs of that arrangement type, ", tags$i("relative to the other songbooks you selected."))),
                                                 plotOutput("arrangementTypeBySongbook")
+                                       ),
+                                       tabPanel("Mode",
+                                                radioButtons("songbookModeOptions",
+                                                             "Sort by:",
+                                                             inline = T,
+                                                             choices = c("Number of songs", "Mode", "Relative number of songs")),
+                                                helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs in that mode, ", tags$i("relative to the other songbooks you selected."))),
+                                                plotOutput("modeBySongbook")
+                                       ),
+                                       tabPanel("Time signature",
+                                                radioButtons("songbookTimeSignatureOptions",
+                                                             "Sort by:",
+                                                             inline = T,
+                                                             choices = c("Number of songs", "Time signature", "Relative number of songs")),
+                                                helpText(tags$p("Color indicates whether the songbook has proportionally ", tags$span("more", style = "color: blue"), " or ", tags$span("fewer", style = "color: red"), " songs in that time signature, ", tags$i("relative to the other songbooks you selected."))),
+                                                plotOutput("timeSignatureBySongbook")
                                        )
                                      )
                                      )
