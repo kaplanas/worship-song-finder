@@ -1,6 +1,3 @@
-# Breaks for song year axes
-song.year.breaks = seq(1000, 3000, 100)
-
 #### Populate worship history outputs ####
 
 if(version == "ctcc") {
@@ -145,7 +142,8 @@ bar.plot.by.songbook = function(data, grouping.col, input.vals,
       ylab("Number of songs") +
       theme(legend.position = "none",
             axis.title = element_text(size = 16),
-            axis.text = element_text(size = 14))
+            axis.text = element_text(size = 14),
+            strip.text = element_text(size = 16))
   }
 }
 
@@ -159,7 +157,7 @@ output$yearBySongbook <- renderPlot({
     distinct() %>%
     ggplot(aes(x = decade, col = songbook.name, fill = songbook.name)) +
     geom_bar(position = "identity", alpha = 0.1) +
-    scale_x_continuous("Year written", breaks = song.year.breaks) +
+    scale_x_continuous("Year written", breaks = seq(1000, 3000, 100)) +
     scale_y_continuous("Number of songs") +
     scale_color_discrete("Songbook") +
     scale_fill_discrete("Songbook") +
@@ -215,93 +213,79 @@ output$timeSignatureBySongbook <- renderPlot({
                        display.options = input$songbookTimeSignatureOptions)
 })
 
-# Create the line graph of topic frequency over time
-output$topicsOverTime <- renderPlot({
-  if(length(input$topicsOverTimeTopics) > 0) {
-    topic.year.df = song.info.df %>%
-      inner_join(songs.topics.df, by = "song.id") %>%
-      inner_join(topics.df, by = "topic.id") %>%
-      filter(topic.name %in% input$topicsOverTimeTopics) %>%
-      group_by(topic.name, decade) %>%
+# Function that creates a line graph of X over time
+line.plot = function(data, grouping.col, input.vals) {
+  if(length(input.vals) > 0) {
+    print(input.vals)
+    groups.by.decade.df = data
+    groups.by.decade.df$gc = groups.by.decade.df[,grouping.col]
+    groups.by.decade.df = groups.by.decade.df %>%
+      group_by(decade) %>%
+      mutate(decade.total = n_distinct(song.id)) %>%
+      ungroup() %>%
+      filter(gc %in% input.vals) %>%
+      group_by(gc, decade, decade.total) %>%
       summarise(num.songs = n_distinct(song.id)) %>%
-      ungroup %>%
-      complete(topic.name, decade, fill = list(num.songs = 0)) %>%
-      inner_join(group_by(song.info.df, decade) %>%
-                   summarise(decade.total = n()),
-                 by = "decade") %>%
+      ungroup() %>%
+      complete(gc, nesting(decade, decade.total),
+               fill = list(num.songs = 0)) %>%
       mutate(prop = num.songs / decade.total,
              lower = binom.confint(num.songs, decade.total, 0.95, "exact")$lower,
-             upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper)
-    ggplot(topic.year.df, aes(x = decade, y = prop)) +
+             upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper) %>%
+      ggplot(aes(x = decade, y = prop)) +
       geom_line() +
-      geom_ribbon(aes(x = decade, ymin = lower, ymax = upper),
+      geom_ribbon(aes(ymin = lower, ymax = upper),
                   alpha = 0.3, color = NA) +
-      facet_wrap(~ topic.name) +
-      scale_x_continuous("Decade",
-                         limits = c(1800, max(song.year.breaks))) +
-      ylab("Proportion of songs")
+      facet_wrap(~ gc) +
+      scale_x_continuous("Decade", breaks = seq(1800, 3000, 50),
+                         limits = c(1800, NA)) +
+      scale_y_continuous("Percent of songs", limits = c(0, 1),
+                         labels = scales::percent_format()) +
+      theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 12),
+            strip.text = element_text(size = 16))
   }
+}
+
+# Create the line graph of topic frequency over time
+output$topicsOverTime <- renderPlot({
+  line.plot(data = song.info.df %>%
+              left_join(songs.topics.df, by = "song.id") %>%
+              left_join(topics.df, by = "topic.id"),
+            grouping.col = "topic.name",
+            input.vals = input$topicsOverTimeTopics)
 })
 
 # Create the line graph of references to books of the Bible over time
 output$scriptureReferencesOverTime <- renderPlot({
-  if(length(input$scriptureReferencesOverTimeBooks) > 0) {
-    scripture.year.df = song.info.df %>%
-      inner_join(song.instances.scripture.references.df, by = "song.id") %>%
-      inner_join(scripture.references.df, by = "scripture.reference.id") %>%
-      filter(book.name %in% input$scriptureReferencesOverTimeBooks) %>%
-      group_by(book.name, decade) %>%
-      summarise(num.songs = n_distinct(song.id)) %>%
-      ungroup() %>%
-      complete(book.name, decade, fill = list(num.songs = 0)) %>%
-      inner_join(group_by(song.info.df, decade) %>%
-                   summarise(decade.total = n()),
-                 by = "decade") %>%
-      mutate(prop = num.songs / decade.total,
-             lower = binom.confint(num.songs, decade.total, 0.95, "exact")$lower,
-             upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper)
-    scripture.year.df$book.name = factor(scripture.year.df$book.name,
-                                         levels = names(book.list)[is.element(names(book.list),
-                                                                              scripture.year.df$book.name)])
-    ggplot(scripture.year.df, aes(x = decade, y = prop)) +
-      geom_line() +
-      geom_ribbon(aes(x = decade, ymin = lower, ymax = upper),
-                  alpha = 0.3, color = NA) +
-      facet_wrap(~ book.name) +
-      scale_x_continuous("Decade",
-                         limits = c(1800, max(song.year.breaks))) +
-      ylab("Proportion of songs")
-  }
+  line.plot(data = song.info.df %>%
+              left_join(song.instances.scripture.references.df,
+                        by = "song.id") %>%
+              left_join(scripture.references.df,
+                        by = "scripture.reference.id"),
+            grouping.col = "book.name",
+            input.vals = input$scriptureReferencesOverTimeBooks)
 })
 
 # Create the line graph of artist gender over time
 output$genderOverTime <- renderPlot({
   if(length(input$genderOverTimeRoles) > 0) {
-    gender.song.df = song.info.df %>%
+    gender.time.df = song.info.df %>%
       filter(!is.na(decade)) %>%
-      dplyr::select(song.id, decade)
-    gender.time.df = gender.song.df %>%
-      inner_join(song.instances.artists.df %>%
-                   filter((role == "lyricist" & "Lyrics" %in% input$genderOverTimeRoles) |
-                            (role == "composer" & "Music" %in% input$genderOverTimeRoles) |
-                            (role == "arranger" & "Arrangement" %in% input$genderOverTimeRoles)),
-                 by = "song.id") %>%
+      group_by(decade) %>%
+      mutate(decade.total = n_distinct(song.id)) %>%
+      ungroup() %>%
+      inner_join(song.instances.artists.df, by = "song.id") %>%
+      filter((role == "lyricist" & "Lyrics" %in% input$genderOverTimeRoles) |
+               (role == "composer" & "Music" %in% input$genderOverTimeRoles) |
+               (role == "arranger" & "Arrangement" %in% input$genderOverTimeRoles)) %>%
       inner_join(artists.df, by = "artist.id") %>%
       filter(gender != "NA") %>%
-      group_by(song.id, decade, gender) %>%
-      summarise(num.artists = n_distinct(artist.id))
-    gender.time.df = gender.time.df %>%
-      group_by(song.id, decade, gender) %>%
-      summarise(total.artists = sum(num.artists)) %>%
-      ungroup() %>%
-      filter(total.artists > 0) %>%
-      group_by(gender, decade) %>%
+      group_by(decade, decade.total, gender) %>%
       summarise(num.songs = n_distinct(song.id)) %>%
       ungroup() %>%
-      complete(gender, decade, fill = list(num.songs = 0)) %>%
-      inner_join(group_by(song.info.df, decade) %>%
-                   summarise(decade.total = n_distinct(song.id)),
-                 by = "decade") %>%
+      complete(gender, nesting(decade, decade.total),
+               fill = list(num.songs = 0)) %>%
       mutate(prop = num.songs / decade.total,
              lower = binom.confint(num.songs, decade.total, 0.95, "exact")$lower,
              upper = binom.confint(num.songs, decade.total, 0.95, "exact")$upper)
@@ -311,10 +295,13 @@ output$genderOverTime <- renderPlot({
       geom_line() +
       geom_ribbon(aes(x = decade, ymin = lower, ymax = upper,
                       fill = gender), alpha = 0.3, color = NA) +
-      scale_x_continuous("Decade",
-                         limits = c(1800, max(song.year.breaks))) +
+      scale_x_continuous("Decade", breaks = seq(1800, 3000, 50),
+                         limits = c(1800, NA)) +
+      scale_y_continuous("Percent of songs",
+                         labels = scales::percent_format()) +
       scale_color_discrete("Artist gender") +
       scale_fill_discrete("Artist gender") +
-      ylab("Proportion of songs")
+      theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 12))
   }
 })
