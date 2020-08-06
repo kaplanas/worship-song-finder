@@ -72,12 +72,12 @@ if(input$scriptureBook != 0) {
     results.df = song.instances.scripture.references.df %>%
       inner_join(scripture.references.df, by = "scripture.reference.id") %>%
       filter(book.id == input$scriptureBook,
-             chapter > input$scriptureChapterStart |
+             chapter > as.numeric(input$scriptureChapterStart) |
                (chapter == input$scriptureChapterStart &
-                  verse >= input$scriptureVerseStart),
-             chapter < input$scriptureChapterEnd |
+                  verse >= as.numeric(input$scriptureVerseStart)),
+             chapter < as.numeric(input$scriptureChapterEnd) |
                (chapter == input$scriptureChapterEnd &
-                  verse <= input$scriptureVerseEnd)) %>%
+                  verse <= as.numeric(input$scriptureVerseEnd))) %>%
       inner_join(results.df, by = "song.id") %>%
       dplyr::select(song.id, song.name) %>%
       distinct()
