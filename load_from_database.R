@@ -241,7 +241,9 @@ lyrics.first.lines.df = dbGetQuery(wsf.shiny.con, lyrics.first.lines.sql) %>%
                 refrain.first.line = RefrainFirstLine) %>%
   pivot_longer(cols = c(first.line, refrain.first.line),
                names_to = "source",
-               values_to = "lyrics.line")
+               values_to = "lyrics.line") %>%
+  filter(!is.na(lyrics.line),
+         lyrics.line != "")
 Encoding(lyrics.first.lines.df$source) = "UTF-8"
 Encoding(lyrics.first.lines.df$lyrics.line) = "UTF-8"
 
