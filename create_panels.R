@@ -49,7 +49,7 @@ meter.list = song.instances.meters.df %>%
   filter(num.songs >= 3,
          meter.id != 1) %>%
   inner_join(meters.df, by = c("meter.id")) %>%
-  mutate(meter.for.sort = sapply(meter,
+  mutate(meter.for.sort = sapply(meter.string,
                                  function(x) {
                                    paste(paste(str_pad(unlist(strsplit(gsub(" D$",
                                                                             "",
@@ -62,7 +62,7 @@ meter.list = song.instances.meters.df %>%
                                          ifelse(endsWith(x, " D"), " D", ""),
                                          sep = "") })) %>%
   arrange(meter.for.sort) %>%
-  select(meter.id, meter)
+  select(meter.id, meter = meter.string)
 
 # Worship slots
 if(version == "ctcc") {

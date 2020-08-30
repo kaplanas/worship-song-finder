@@ -228,6 +228,7 @@ CREATE TABLE songinstances_songbooks AS
       ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID);
 COMMIT;
 
+
 -- Table of arrangement types
 DROP TABLE IF EXISTS arrangementtypes;
 CREATE TABLE arrangementtypes AS
@@ -299,7 +300,8 @@ COMMIT;
 DROP TABLE IF EXISTS meters;
 CREATE TABLE meters AS
 (SELECT MeterID,
-        Meter
+        Meter,
+        Multiplier
  FROM wsf.meters);
 COMMIT;
 

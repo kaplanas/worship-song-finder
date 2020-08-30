@@ -219,11 +219,13 @@ song.instances.time.signatures.df = dbGetQuery(wsf.shiny.con,
                 time.signature.id = TimeSignatureID)
 
 # Get table of meters
-meters.sql = "SELECT MeterID, Meter
+meters.sql = "SELECT MeterID, Meter, Multiplier
               FROM meters"
 meters.df = dbGetQuery(wsf.shiny.con, meters.sql) %>%
-  dplyr::select(meter.id = MeterID, meter = Meter)
-Encoding(meters.df$meter) = "UTF-8"
+  mutate(meter.string = paste(Meter, Multiplier)) %>%
+  dplyr::select(meter.id = MeterID, meter = Meter, multiplier = Multiplier,
+                meter.string)
+Encoding(meters.df$meter.string) = "UTF-8"
 
 # Get table that connects song instances and meters
 song.instances.meters.sql = "SELECT SongInstanceID, SongID, MeterID

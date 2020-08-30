@@ -219,9 +219,9 @@ if(length(input$meterChoices) >= 1) {
         dplyr::select(song.instance.id) %>%
         distinct()
     }
-    song.instances.include.df = song.instances.df %>%
-      inner_join(song.instances.include.df, by = "song.instance.id")
-    results.df = song.instancecs.include.df %>%
+    song.instances.include.df = song.instances.include.df %>%
+      inner_join(song.instances.df, by = "song.instance.id")
+    results.df = song.instances.include.df %>%
       inner_join(results.df, by = "song.id") %>%
       dplyr::select(song.id, song.name) %>%
       distinct()
