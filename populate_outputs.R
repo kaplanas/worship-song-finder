@@ -305,3 +305,80 @@ output$genderOverTime <- renderPlot({
             axis.text = element_text(size = 12))
   }
 })
+
+# Create the graph of songbook overlap
+output$songbookOverlap <- renderVisNetwork({
+  visNetwork(songbook.overlap.nodes.df, songbook.overlap.edges.df) %>%
+    visNodes(shape = "box", font = list(size = 18)) %>%
+    visEdges(color = list(color = "rgba(0, 0, 0, 0.1)", highlight = "black")) %>%
+    visIgraphLayout(layout = "layout_with_fr",
+                    weights = songbook.overlap.edges.df$weight) %>%
+    visLegend(addNodes = lapply(1:(length(songbook.group.colors)-1),
+                                function(x) {
+                                  list(label = names(songbook.group.colors)[x],
+                                       color = unname(songbook.group.colors[x]),
+                                       shape = "box") }),
+      useGroups = F, stepY = 50) %>%
+    visEvents(select = "function(data) {
+              Shiny.onInputChange('current_nodes_selection', data.nodes);
+              Shiny.onInputChange('current_edges_selection', data.edges);
+              ;}")
+})
+
+# Update the edge colors depending on which node is highlighted
+observe({
+  if(isTruthy(input$current_nodes_selection)) {
+    selected.id = as.numeric(input$current_nodes_selection)
+    temp.edges.df = songbook.overlap.edges.df %>%
+      mutate(other.id = case_when(from == selected.id ~ to,
+                                  to == selected.id ~ from)) %>%
+      left_join(songbook.overlap.nodes.df %>%
+                  dplyr::select(id, color.highlight = color),
+                by = c("other.id" = "id"))
+    visNetworkProxy("songbookOverlap") %>%
+      visUpdateEdges(temp.edges.df)
+  } else {
+    visNetworkProxy("songbookOverlap") %>%
+      visUpdateEdges(songbook.overlap.edges.df %>%
+                       mutate(color.highlight = "black"))
+  }
+})
+
+# Create the table of songs selected in the overlap graph
+output$songbookSongsInCommon = renderDT({
+  if(isTruthy(input$current_nodes_selection)) {
+    id = as.numeric(input$current_nodes_selection)
+    songbook.name = songbooks.df$songbook.name[songbooks.df$songbook.id == id]
+    songs.df %>%
+      dplyr::select(song.id, Song = song.name) %>%
+      inner_join(song.instances.songbooks.df %>%
+                   filter(songbook.id == id) %>%
+                   mutate(!!songbook.name := entry.string.no.name) %>%
+                   dplyr::select(song.id, !!songbook.name),
+                 by = "song.id") %>%
+      dplyr::select(-song.id) %>%
+      arrange(Song)
+  }
+  else if(isTruthy(input$current_edges_selection)) {
+    ids.1 = as.numeric(gsub("^([0-9]+)-[0-9]+$", "\\1",
+                            input$current_edges_selection, perl = T))
+    ids.2 = as.numeric(gsub("^[0-9]+-([0-9]+)$", "\\1",
+                            input$current_edges_selection, perl = T))
+    temp.df = songs.df %>%
+      dplyr::select(song.id, Song = song.name)
+    for(id in unique(c(ids.1, ids.2))) {
+      songbook.name = songbooks.df$songbook.name[songbooks.df$songbook.id == id]
+      temp.df = temp.df %>%
+        inner_join(song.instances.songbooks.df %>%
+                     filter(songbook.id == id) %>%
+                     group_by(song.id) %>%
+                     summarise(!!songbook.name := paste0(entry.string.no.name,
+                                                         collapse = ", ")) %>%
+                     ungroup(),
+                   by = "song.id")
+    }
+    temp.df %>%
+      dplyr::select(-song.id) %>%
+      arrange(Song)
+  }
+}, rownames = F, options = list(pageLength = 50))

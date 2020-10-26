@@ -10,6 +10,12 @@ library(stringr)
 library(stringi)
 library(gridExtra)
 library(binom)
+library(igraph)
+library(visNetwork)
+library(magrittr)
+library(stringr)
+library(DT)
+library(RColorBrewer)
 
 #version = "ctcc"
 version = "general"
@@ -90,6 +96,7 @@ if(version == "ctcc") {
 song.analysis.page = tabPanel("Song analysis",
                               navlistPanel(
                                 songbook.comparison.panel,
+                                songbook.overlap.panel,
                                 change.over.time.panel
                               )
                      )

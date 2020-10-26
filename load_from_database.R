@@ -128,25 +128,49 @@ song.instances.songbooks.sql = "SELECT SongInstanceID, SongID, SongbookID,
                                 FROM songinstances_songbooks"
 song.instances.songbooks.df = dbGetQuery(wsf.shiny.con,
                                          song.instances.songbooks.sql) %>%
+  filter(SongbookID != 20 | !is.na(SongbookVolume)) %>%
   mutate(include.in.search = IncludeInSearch == "Y",
+         entry.string.no.name = paste(case_when(is.na(SongbookVolume) ~ "",
+                                                SongbookID %in% c(0, 6) ~ "",
+                                                T ~ SongbookVolume),
+                                      case_when(SongbookID == 12 ~ "",
+                                                is.na(EntryNumber) ~ "",
+                                                EntryNumber == "" ~ "",
+                                                T ~ paste(" ", EntryNumber,
+                                                          sep = "")),
+                                      sep = ""),
          entry.string = paste(SongbookAbbreviation,
                               case_when(is.na(SongbookVolume) ~ "",
                                         SongbookID %in% c(0, 6) ~ "",
-                                        T ~ paste(" ",
-                                                  SongbookVolume,
-                                                  sep = "")),
-                              case_when(SongbookID == 12 ~ "",
-                                        is.na(EntryNumber) ~ "",
-                                        EntryNumber == "" ~ "",
-                                        T ~ paste(" ", EntryNumber,
-                                                  sep = "")),
-                              sep = "")) %>%
+                                        T ~ " "),
+                              entry.string.no.name,
+                              sep = ""),
+         entry.string.no.name = ifelse(SongbookID == 12,
+                                       paste(entry.string.no.name,
+                                             EntryNumber,
+                                             sep = " "),
+                                       entry.string.no.name)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 songbook.id = SongbookID, songbook.name = SongbookName,
                 songbook.abbreviation = SongbookAbbreviation, include.in.search,
-                entry.number = EntryNumber, entry.string)
+                entry.number = EntryNumber, entry.string.no.name, entry.string)
 Encoding(song.instances.songbooks.df$songbook.name) = "UTF-8"
 Encoding(song.instances.songbooks.df$songbook.abbreviation) = "UTF-8"
+
+# Get table of songbook overlap
+songbook.overlap.sql = "SELECT SongbookID1, SongbookName1, IncludeInSearch1,
+                               SongbookID2, SongbookName2, IncludeInSearch2,
+                               SongID
+                        FROM songbook_overlap"
+songbook.overlap.df = dbGetQuery(wsf.shiny.con, songbook.overlap.sql) %>%
+  mutate(include.in.search.1 = IncludeInSearch1 == "Y",
+         include.in.search.2 = IncludeInSearch2 == "Y") %>%
+  dplyr::select(songbook.id.1 = SongbookID1, songbook.name.1 = SongbookName1,
+                include.in.search.1, songbook.id.2 = SongbookID2,
+                songbook.name.2 = SongbookName2, include.in.search.2,
+                song.id = SongID)
+Encoding(songbook.overlap.df$songbook.name.1) = "UTF-8"
+Encoding(songbook.overlap.df$songbook.name.2) = "UTF-8"
 
 # Get table of arrangement types
 arrangement.types.sql = "SELECT ArrangementTypeID, ArrangementType
@@ -268,6 +292,9 @@ if(version == "general") {
   # Songbook entries
   song.instances.songbooks.df = song.instances.songbooks.df %>%
     filter(include.in.search)
+  # Songbook overlap
+  songbook.overlap.df = songbook.overlap.df %>%
+    filter(include.in.search.1, include.in.search.2)
   # Song instances
   song.instances.df = song.instances.df %>%
     semi_join(song.instances.songbooks.df %>%
@@ -495,3 +522,36 @@ song.info.df = songs.df %>%
                        NA, pmax(last.lyrics.year, last.tune.year)),
          decade = floor(year / 10) * 10) %>%
   dplyr::select(song.id, title = song.name, topics, year, decade)
+
+# Create nodes and edges for songbook overlap graph
+songbook.group.colors = brewer.pal(5, "Set3")[c(5, 3, 1, 2, 4)]
+names(songbook.group.colors) = c("Newer songbooks", "Older songbooks",
+                                 "Series", "Specialty collections",
+                                 "Uncategorized")
+songbook.overlap.nodes.df = data.frame(songbook.id = unique(c(songbook.overlap.df$songbook.id.1,
+                                                              songbook.overlap.df$songbook.id.2))) %>%
+  inner_join(songbooks.df, by = "songbook.id") %>%
+  mutate(label = str_wrap(songbook.name, 15),
+         group = case_when(songbook.id %in% c(1, 6, 8, 11, 17) ~ 1,
+                           songbook.id %in% c(2, 3, 4, 5, 9) ~ 2,
+                           songbook.id %in% c(10, 14, 15, 20) ~ 3,
+                           songbook.id %in% c(13, 18, 19) ~ 4,
+                           T ~ 5),
+         rgb = case_when(songbook.id == 12 ~ "#888888",
+                         T ~ songbook.group.colors[group]),
+         rgb = apply(col2rgb(rgb), 2, paste, collapse = ", "),
+         color = paste("rgba(", rgb, ", 0.6)", sep = "")) %>%
+  dplyr::select(id = songbook.id, label, group, rgb, color)
+songbook.overlap.edges.df = songbook.overlap.df %>%
+  mutate(id = paste(songbook.id.1, songbook.id.2, sep = "-"),
+         overlap.weight = 1) %>%
+  dplyr::select(id, from = songbook.id.1, to = songbook.id.2, songbook.name.1,
+                songbook.name.2, song.id, overlap.weight) %>%
+  group_by(id, from, to, songbook.name.1, songbook.name.2) %>%
+  summarize(n = n(),
+            weight = sum(overlap.weight)) %>%
+  ungroup() %>%
+  mutate(title = paste(songbook.name.1, "<br/>", songbook.name.2, "<br/><i>",
+                       n, " song", ifelse(n == 1, "", "s"), " in common</i>",
+                       sep = ""),
+         value = weight)

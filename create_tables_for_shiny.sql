@@ -228,6 +228,28 @@ CREATE TABLE songinstances_songbooks AS
       ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID);
 COMMIT;
 
+-- Table of shared songs.
+DROP TABLE IF EXISTS songbook_overlap;
+CREATE TABLE songbook_overlap AS
+(SELECT DISTINCT SongbookID1, SongbookName1, IncludeInSearch1,
+        SongbookID2, SongbookName2, IncludeInSearch2, si1.SongID
+ FROM ((SELECT SongbookID AS SongbookID1,
+               SongbookName AS SongbookName1,
+               IncludeInSearch AS IncludeInSearch1
+        FROM wsf.songbooks) s1
+       CROSS JOIN (SELECT SongbookID AS SongbookID2,
+                          SongbookName AS SongbookName2,
+                          IncludeInSearch AS IncludeInSearch2
+                   FROM wsf.songbooks) s2)
+      INNER JOIN (SELECT SongbookID, SongID
+                  FROM songinstances_songbooks) si1
+      ON SongbookID1 = si1.SongbookID
+      INNER JOIN (SELECT SongbookID, SongID
+                  FROM songinstances_songbooks) si2
+      ON SongbookID2 = si2.SongbookID
+         AND si1.SongID = si2.SongID
+ WHERE SongbookID1 < SongbookID2);
+COMMIT;
 
 -- Table of arrangement types
 DROP TABLE IF EXISTS arrangementtypes;
