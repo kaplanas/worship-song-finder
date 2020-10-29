@@ -407,3 +407,56 @@ CREATE TABLE worshiphistory AS
         WorshipSlotID
  FROM wsf.worshiphistory);
 COMMIT;
+
+-- Table that connects metrical psalms and lyrics
+DROP TABLE IF EXISTS metricalpsalms_lyrics;
+CREATE TABLE metricalpsalms_lyrics AS
+(SELECT CONCAT('MP', MetricalPsalmID) AS PsalmSongID,
+        metricalpsalms_lyrics.LyricsID, FirstLine,
+        ROW_NUMBER() OVER (PARTITION BY MetricalPsalmID
+                           ORDER BY AvgVerse) AS LyricsOrder
+ FROM wsf.metricalpsalms_lyrics
+      LEFT JOIN wsf.lyrics
+	  ON metricalpsalms_lyrics.LyricsID = lyrics.LyricsID
+      LEFT JOIN (SELECT lyrics_scripturereferences.LyricsID,
+                        AVG(Verse) AS AvgVerse
+                 FROM wsf.lyrics_scripturereferences
+                      INNER JOIN wsf.scripturereferences
+                      ON lyrics_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID
+                 GROUP BY LyricsID) avg_verse
+      ON metricalpsalms_lyrics.LyricsID = avg_verse.LyricsID
+ WHERE metricalpsalms_lyrics.LyricsID NOT IN
+       (SELECT LyricsID
+        FROM wsf.songinstances_lyrics
+             INNER JOIN wsf.songinstances
+             ON songinstances_lyrics.SongInstanceID = songinstances.SongInstanceID
+             INNER JOIN wsf.psalmsongs
+             ON songinstances.SongID = psalmsongs.SongID));
+COMMIT;
+
+-- Table of psalm songs
+DROP TABLE IF EXISTS psalmsongs;
+CREATE TABLE psalmsongs AS
+(SELECT CONCAT('PS', PsalmSongID) AS PsalmSongID,
+        PsalmNumber, psalmsongs.SongID, PsalmSongTypeID,
+        SongName AS PsalmSongTitle
+ FROM wsf.psalmsongs
+      LEFT JOIN wsf.songs
+      ON psalmsongs.SongID = songs.SongID
+ UNION ALL
+ SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
+        PsalmNumber, NULL AS SongID, NULL AS PsalmSongTypeID,
+        FirstLine AS PsalmSongTitle
+ FROM wsf.metricalpsalms
+      INNER JOIN (SELECT PsalmSongID, FirstLine
+                  FROM wsf_shiny.metricalpsalms_lyrics
+                  WHERE LyricsOrder = 1) not_psalmsongs
+      ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = not_psalmsongs.PsalmSongID);
+COMMIT;
+
+-- Table of psalm song types
+DROP TABLE IF EXISTS psalmsongtypes;
+CREATE TABLE psalmsongtypes AS
+(SELECT PsalmSongTypeID, PsalmSongType
+ FROM wsf.psalmsongtypes);
+COMMIT;

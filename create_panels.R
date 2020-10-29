@@ -34,12 +34,12 @@ language.list = languages.df %>%
 # Key signatures
 key.signature.list = key.signatures.df %>%
   arrange(pitch.name, ifelse(accidental.id == 3, 0, accidental.id), mode.id) %>%
-  select(key.signature.id, key.signature.string)
+  dplyr::select(key.signature.id, key.signature.string)
 
 # Time signatures
 time.signature.list = time.signatures.df %>%
   arrange(time.signature.measure, time.signature.beat) %>%
-  select(time.signature.id, time.signature.string)
+  dplyr::select(time.signature.id, time.signature.string)
 
 # Meters
 meter.list = song.instances.meters.df %>%
@@ -69,8 +69,17 @@ if(version == "ctcc") {
   worship.slot.list = worship.slots.df %>%
     arrange(worship.slot.order) %>%
     filter(!is.element(worship.slot.id, c(4, 5))) %>%
-    select(worship.slot.id, worship.slot)
+    dplyr::select(worship.slot.id, worship.slot)
 }
+
+# Psalm numbers
+psalm.number.list = 1:150
+
+# Psalm song types
+psalm.song.type.list = psalm.song.types.df %>%
+  dplyr::select(psalm.song.type, psalm.song.type.id) %>%
+  arrange(psalm.song.type) %>%
+  deframe()
 
 #### Create filter panels ####
 
@@ -163,6 +172,19 @@ meter.filter = tabPanel("Meter",
                                            choiceNames = meter.list$meter,
                                            choiceValues = meter.list$meter.id)
 )
+
+# Psalm number filter
+psalm.number.filter = selectInput("psalmNumber",
+                                  "Psalm number:",
+                                  1:150)
+
+# Psalm song type filter
+psalm.song.type.filter = pickerInput("psalmSongType",
+                                     "Select one or more song types:",
+                                     multiple = T,
+                                     options = list(`actions-box` = TRUE),
+                                     width = "100%",
+                                     choices = psalm.song.type.list)
 
 #### Create other input panels ####
 
@@ -424,3 +446,48 @@ all.song.panels = lapply(
   }
 )
 names(all.song.panels) = as.character(song.info.df$song.id)
+
+# Get titles for content panels for all psalm songs
+all.psalm.song.panel.titles = lapply(
+  psalm.songs.df$psalm.song.id,
+  function(psalmSongID) {
+    song.id = psalm.songs.df %>%
+      filter(psalm.song.id == psalmSongID) %>%
+      pull(song.id)
+    main.title = psalm.songs.df %>%
+      filter(psalm.song.id == psalmSongID) %>%
+      pull(psalm.song.title)
+    if(grepl("^PS", psalmSongID)) {
+      other.titles = sort(unique(song.instance.info.df$title[song.instance.info.df$song.id == song.id &
+                                                               !startsWith(main.title, song.instance.info.df$title)]))
+    } else if(grepl("^MP", psalmSongID)) {
+      other.titles = metrical.psalms.lyrics.df %>%
+        filter(psalm.song.id == psalmSongID,
+               lyrics.order > 1) %>%
+        arrange(lyrics.order) %>%
+        pull(first.line)
+    }
+    tags$span(main.title,
+              lapply(other.titles,
+                     function(otherTitle) {
+                       list(br(), tags$i(otherTitle))
+                     }), display = "flex", justify = "space-between")
+  }
+)
+names(all.psalm.song.panel.titles) = psalm.songs.df$psalm.song.id
+
+# Constant: colors for psalm song types
+psalm.song.type.colors = brewer.pal(4, "Set1")[c(3, 2, 4, 1)]
+
+# Get content panels for all psalm songs
+all.psalm.song.panels = lapply(
+  psalm.songs.df$psalm.song.id,
+  function(psalmSongID) {
+    main.title = psalm.songs.df %>%
+      filter(psalm.song.id == psalmSongID) %>%
+      pull(psalm.song.title)
+    psalm.song.info.to.return = h1(main.title)
+    return(psalm.song.info.to.return)
+  }
+)
+names(all.psalm.song.panels) = psalm.songs.df$psalm.song.id

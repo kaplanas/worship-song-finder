@@ -16,15 +16,12 @@ library(magrittr)
 library(stringr)
 library(DT)
 library(RColorBrewer)
+library(tibble)
 
-#version = "ctcc"
+# version = "ctcc"
 version = "general"
 
-if(version == "ctcc") {
-  source("database_connection.R", local = T)
-} else {
-  source("database_connection_local.R", local = T)
-}
+source("database_connection_local.R", local = T)
 
 #### Useful initial settings ####
 
@@ -97,8 +94,22 @@ song.analysis.page = tabPanel("Song analysis",
                               navlistPanel(
                                 songbook.comparison.panel,
                                 songbook.overlap.panel,
-                                change.over.time.panel
+                                change.over.time.panel,
+                                widths = c(3, 9)
                               )
+                     )
+psalm.singing.page = tabPanel("Psalm singing",
+                              sidebarLayout(
+                                sidebarPanel(
+                                  psalm.number.filter,
+                                  psalm.song.type.filter,
+                                  width = 3
+                                ),
+                                mainPanel(
+                                  uiOutput("psalmSongList"),
+                                  width = 9
+                                )
+                               )
                      )
 help.page = tabPanel("Help",
                      navlistPanel(
@@ -131,6 +142,7 @@ if(version == "ctcc") {
     search.page,
     worship.history.page,
     song.analysis.page,
+    psalm.singing.page,
     help.page
   )
 } else {
@@ -139,6 +151,7 @@ if(version == "ctcc") {
     theme = page.theme,
     search.page,
     song.analysis.page,
+    psalm.singing.page,
     help.page
   )
 }
@@ -147,25 +160,6 @@ if(version == "ctcc") {
 
 # Define server logic
 server <- function(input, output, session) {
-  
-  # Get worship history
-  if(version == "ctcc") {
-    wsf.shiny.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                              dbname = db.name, host = db.host)
-    on.exit(dbDisconnect(wsf.shiny.con), add = T)
-    dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
-    worship.history.sql = "SELECT WorshipHistoryID, SongInstanceID,
-                                  WorshipHistoryDate, WorshipSlotID
-                           FROM worshiphistory"
-    worship.history.df = dbGetQuery(wsf.shiny.con, worship.history.sql) %>%
-      dplyr::select(worship.history.id = WorshipHistoryID,
-                    song.instance.id = SongInstanceID,
-                    worship.history.date = WorshipHistoryDate,
-                    worship.slot.id = WorshipSlotID)
-    worship.history.df$worship.history.date = as.Date(worship.history.df$worship.history.date)
-    worship.history.df = filter(worship.history.df,
-                                format(worship.history.df$worship.history.date, "%Y") >= 2017)
-  }
 
   # Populate the scripture filter based on the selected options
   includeScriptureEnd = reactive({
@@ -215,49 +209,7 @@ server <- function(input, output, session) {
                       choices = dynamicVersesEnd())
   })
 
-  # Populate the results list
-  get.song.list.results = reactive({
-    # Start with a list of all songs
-    results.df = songs.df %>%
-      select(song.id, song.name)
-    # Filter the songs
-    source("filter_results.R", local = T)
-    # Order the results
-    results.df = inner_join(results.df, songs.df,
-                            by = c("song.id", "song.name")) %>%
-      arrange(song.name.sort)
-    # Return the results
-    results.df
-  })
-  output$songList = renderUI({
-
-    # Create the list of results
-    results.df = get.song.list.results()
-    if(nrow(results.df) > 0 &
-       (input$songTitle != "" |
-        input$artistName != "" |
-        length(input$topicChoices) > 0 |
-        input$scriptureBook != 0 |
-        length(input$songbookChoices) > 0 |
-        length(input$arrangementChoices) > 0 |
-        length(input$languageChoices) > 0 |
-        length(input$keyChoices) > 0 |
-        length(input$timeChoices) > 0 |
-        length(input$meterChoices) > 0) |
-        length(input$requestChoices) > 0) {
-      song.panels = lapply(1:nrow(results.df),
-                           function(i) {
-                             return(tabPanel(title = all.song.panel.titles[[as.character(results.df$song.id[i])]],
-                                             all.song.panels[[as.character(results.df$song.id[i])]]))
-                           })
-      song.panels[["widths"]] = c(5, 7)
-      song.panels[["well"]] = F
-      song.panels[["id"]] = "songResultsPanel"
-      do.call(navlistPanel, song.panels)
-    }
-  })
-
-  # Populate all other outputs
+  # Populate outputs
   source("populate_outputs.R", local = T)
   
 }

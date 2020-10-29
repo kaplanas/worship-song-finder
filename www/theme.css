@@ -17,9 +17,40 @@
   height: 85vh;
   overflow-y: auto;
 }
+
 .alignleft {
 	float: left;
 }
+
 .alignright {
 	float: right;
+}
+
+.nav-pills>li.psalmsongtype0>a {
+	background-color: rgba(77, 175, 74, 0.2);
+	color: black;
+}
+.nav-pills>li.psalmsongtype0.active>a {
+	background-color: rgba(77, 175, 74, 0.6);
+}
+.nav-pills>li.psalmsongtype1>a {
+	background-color: rgba(55, 126, 184, 0.2);
+	color: black;
+}
+.nav-pills>li.psalmsongtype1.active>a {
+	background-color: rgba(55, 126, 184, 0.7);
+}
+.nav-pills>li.psalmsongtype2>a {
+	background-color: rgba(152, 78, 163, 0.2);
+	color: black;
+}
+.nav-pills>li.psalmsongtype2.active>a {
+	background-color: rgba(152, 78, 163, 0.7);
+}
+.nav-pills>li.psalmsongtype3>a {
+	background-color: rgba(228, 26, 28, 0.2);
+	color: black;
+}
+.nav-pills>li.psalmsongtype3.active>a {
+	background-color: rgba(228, 26, 28, 0.6);
 }
