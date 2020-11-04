@@ -300,13 +300,33 @@ if(version == "ctcc") {
 
 # Get table of psalm songs
 psalm.songs.sql = "SELECT PsalmSongID, PsalmNumber, SongID, PsalmSongTypeID,
-                          PsalmSongTitle
+                          PsalmSongType, PsalmSongTitle, PrettyScriptureList
                    FROM wsf_shiny.psalmsongs"
 psalm.songs.df = dbGetQuery(wsf.shiny.con, psalm.songs.sql) %>%
+  mutate(pretty.scripture.list = gsub("^Ps [0-9]+:", "", PrettyScriptureList)) %>%
   dplyr::select(psalm.song.id = PsalmSongID, psalm.number = PsalmNumber,
                 song.id = SongID, psalm.song.type.id = PsalmSongTypeID,
-                psalm.song.title = PsalmSongTitle)
+                psalm.song.type = PsalmSongType,
+                psalm.song.title = PsalmSongTitle, pretty.scripture.list)
+Encoding(psalm.songs.df$psalm.song.type) = "UTF-8"
 Encoding(psalm.songs.df$psalm.song.title) = "UTF-8"
+
+# Get table of full lyrics
+full.lyrics.sql = "SELECT LyricsID, FullLyrics
+                   FROM wsf.all_lyrics"
+full.lyrics.df = dbGetQuery(wsf.shiny.con, full.lyrics.sql) %>%
+  dplyr::select(lyrics.id = LyricsID, full.lyrics = FullLyrics)
+Encoding(full.lyrics.df$full.lyrics) = "UTF-8"
+
+# Get table that connecs psalm songs and lyrics
+psalm.songs.lyrics.sql = "SELECT PsalmSongID, LyricsID, FirstLine, LanguageID,
+                                 PublicDomain, LyricsOrder
+                          FROM wsf_shiny.psalmsongs_lyrics"
+psalm.songs.lyrics.df = dbGetQuery(wsf.shiny.con, psalm.songs.lyrics.sql) %>%
+  dplyr::select(psalm.song.id = PsalmSongID, lyrics.id = LyricsID,
+                first.line = FirstLine, language.id = LanguageID,
+                public.domain = PublicDomain, lyrics.order = LyricsOrder)
+Encoding(psalm.songs.lyrics.df$first.line) = "UTF-8"
 
 # Get table of psalm song types
 psalm.song.types.sql = "SELECT PsalmSongTypeID, PsalmSongType
@@ -316,14 +336,21 @@ psalm.song.types.df = dbGetQuery(wsf.shiny.con, psalm.song.types.sql) %>%
                 psalm.song.type = PsalmSongType)
 Encoding(psalm.song.types.df$psalm.song.type) = "UTF-8"
 
-# Get table that connects metrical psalms and lyrics
-metrical.psalms.lyrics.sql = "SELECT PsalmSongID, LyricsID, FirstLine,
-                                     LyricsOrder
-                              FROM wsf_shiny.metricalpsalms_lyrics"
-metrical.psalms.lyrics.df = dbGetQuery(wsf.shiny.con,
-                                       metrical.psalms.lyrics.sql) %>%
-  dplyr::select(psalm.song.id = PsalmSongID, lyrics.id = LyricsID,
-                first.line = FirstLine, lyrics.order = LyricsOrder)
+# Get table of alternative tunes
+alternative.tunes.sql = "SELECT PsalmSongID, TuneID, TuneDisplayName, Notes
+                         FROM wsf_shiny.psalmsongs_alternativetunes"
+alternative.tunes.df = dbGetQuery(wsf.shiny.con, alternative.tunes.sql) %>%
+  dplyr::select(psalm.song.id = PsalmSongID, tune.id = TuneID,
+                tune.display.name = TuneDisplayName, notes = Notes)
+Encoding(alternative.tunes.df$tune.display.name) = "UTF-8"
+Encoding(alternative.tunes.df$notes) = "UTF-8"
+
+# Get table that connects tunes and canonical songs
+tunes.canonical.songs.sql = "SELECT TuneID, SongID
+                             FROM wsf_shiny.tunes_canonicalsongs"
+tunes.canonical.songs.df = dbGetQuery(wsf.shiny.con,
+                                      tunes.canonical.songs.sql) %>%
+  dplyr::select(tune.id = TuneID, song.id = SongID)
 
 #### Remove songbooks we don't want to show ####
 
@@ -496,6 +523,7 @@ song.instance.info.df = song.instances.df %>%
   mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
                        NA, pmax(last.lyrics.year, last.tune.year)),
          decade = floor(year / 10) * 10) %>%
+  arrange(desc(num.entries)) %>%
   dplyr::select(song.id, song.instance.id, title = song.instance, year, decade,
                 songbook.entries, arrangement.types, key.signatures,
                 time.signatures, scripture.references, composers, arrangers,
@@ -564,10 +592,18 @@ song.info.df = songs.df %>%
               summarise(last.lyrics.year = max(last.lyrics.year),
                         last.tune.year = max(last.tune.year)),
             by = c("song.id")) %>%
+  left_join(song.instances.songbooks.df %>%
+              group_by(song.id) %>%
+              arrange(songbook.abbreviation, entry.number) %>%
+              summarise(songbook.entries = paste(entry.string,
+                                                 collapse = ", ")) %>%
+              ungroup(),
+            by = c("song.id")) %>%
   mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
                        NA, pmax(last.lyrics.year, last.tune.year)),
          decade = floor(year / 10) * 10) %>%
-  dplyr::select(song.id, title = song.name, topics, year, decade)
+  dplyr::select(song.id, title = song.name, topics, year, decade,
+                songbook.entries)
 
 # Create nodes and edges for songbook overlap graph
 songbook.group.colors = brewer.pal(5, "Set3")[c(5, 3, 1, 2, 4)]
@@ -601,3 +637,12 @@ songbook.overlap.edges.df = songbook.overlap.df %>%
                        n, " song", ifelse(n == 1, "", "s"), " in common</i>",
                        sep = ""),
          value = weight)
+
+# Add songbook entries to alternative tunes
+alternative.tunes.df = alternative.tunes.df %>%
+  left_join(tunes.canonical.songs.df, by = "tune.id") %>%
+  left_join(song.instances.songbooks.df, by = "song.id") %>%
+  group_by(psalm.song.id, tune.id, tune.display.name, notes, song.id) %>%
+  arrange(songbook.abbreviation, entry.number) %>%
+  summarise(entry.string = paste(entry.string, collapse = ", ")) %>%
+  ungroup()

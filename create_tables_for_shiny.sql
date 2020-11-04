@@ -1,16 +1,16 @@
 USE wsf_shiny;
 
 -- Table of songs
-DROP TABLE IF EXISTS songs;
-CREATE TABLE songs AS
+DROP TABLE IF EXISTS wsf_shiny.songs;
+CREATE TABLE wsf_shiny.songs AS
 (SELECT SongID,
         SongName
  FROM wsf.songs);
 COMMIT;
 
 -- Table of song instances
-DROP TABLE IF EXISTS songinstances;
-CREATE TABLE songinstances AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances;
+CREATE TABLE wsf_shiny.songinstances AS
 (SELECT songinstances.SongInstanceID,
         SongInstance, songinstances.ArrangementID,
         SongID,
@@ -89,8 +89,8 @@ CREATE TABLE songinstances AS
 COMMIT;
 
 -- Table of artists
-DROP TABLE IF EXISTS artists;
-CREATE TABLE artists AS
+DROP TABLE IF EXISTS wsf_shiny.artists;
+CREATE TABLE wsf_shiny.artists AS
 (SELECT ArtistID,
         LastName,
         FirstName,
@@ -101,8 +101,8 @@ CREATE TABLE artists AS
 COMMIT;
 
 -- Table that connects song instances and artists
-DROP TABLE IF EXISTS songinstances_artists;
-CREATE TABLE songinstances_artists AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_artists;
+CREATE TABLE wsf_shiny.songinstances_artists AS
 (SELECT DISTINCT songinstances.SongInstanceID,
         SongID, ArtistID,
         'lyricist' AS Role
@@ -129,23 +129,23 @@ CREATE TABLE songinstances_artists AS
 COMMIT;
 
 -- Table of topics
-DROP TABLE IF EXISTS topics;
-CREATE TABLE topics AS
+DROP TABLE IF EXISTS wsf_shiny.topics;
+CREATE TABLE wsf_shiny.topics AS
 (SELECT TopicID,
         TopicName
  FROM wsf.topics);
 COMMIT;
 
 -- Table that connects songs and topics
-DROP TABLE IF EXISTS songs_topics;
-CREATE TABLE songs_topics AS
+DROP TABLE IF EXISTS wsf_shiny.songs_topics;
+CREATE TABLE wsf_shiny.songs_topics AS
 (SELECT SongID, TopicID
  FROM wsf.songs_topics);
 COMMIT;
 
 -- Table of books of the Bible
-DROP TABLE IF EXISTS bible_books;
-CREATE TABLE bible_books AS
+DROP TABLE IF EXISTS wsf_shiny.bible_books;
+CREATE TABLE wsf_shiny.bible_books AS
 (SELECT BookID,
         BookName,
         BookAbbreviation
@@ -153,8 +153,8 @@ CREATE TABLE bible_books AS
 COMMIT;
 
 -- Table of scripture references
-DROP TABLE IF EXISTS scripturereferences;
-CREATE TABLE scripturereferences AS
+DROP TABLE IF EXISTS wsf_shiny.scripturereferences;
+CREATE TABLE wsf_shiny.scripturereferences AS
 (SELECT ScriptureReferenceID,
         booksofthebible.BookID,
         BookName,
@@ -167,8 +167,8 @@ CREATE TABLE scripturereferences AS
 COMMIT;
 
 -- Table that connects song instances and scripture references
-DROP TABLE IF EXISTS songinstances_scripturereferences;
-CREATE TABLE songinstances_scripturereferences AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_scripturereferences;
+CREATE TABLE wsf_shiny.songinstances_scripturereferences AS
 (SELECT DISTINCT songinstances.SongInstanceID, SongID, ScriptureReferenceID
  FROM wsf.songinstances
       JOIN wsf.songinstances_lyrics
@@ -178,16 +178,16 @@ CREATE TABLE songinstances_scripturereferences AS
 COMMIT;
 
 -- Table of languages
-DROP TABLE IF EXISTS languages;
-CREATE TABLE languages AS
+DROP TABLE IF EXISTS wsf_shiny.languages;
+CREATE TABLE wsf_shiny.languages AS
 (SELECT LanguageID,
         LanguageName
  FROM wsf.languages);
 COMMIT;
 
 -- Table that connects song instances and languages
-DROP TABLE IF EXISTS songinstances_languages;
-CREATE TABLE songinstances_languages AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_languages;
+CREATE TABLE wsf_shiny.songinstances_languages AS
 (SELECT DISTINCT songinstances.SongInstanceID,
         SongID, LanguageID
  FROM wsf.songinstances
@@ -198,8 +198,8 @@ CREATE TABLE songinstances_languages AS
 COMMIT;
 
 -- Table of songbooks
-DROP TABLE IF EXISTS songbooks;
-CREATE TABLE songbooks AS
+DROP TABLE IF EXISTS wsf_shiny.songbooks;
+CREATE TABLE wsf_shiny.songbooks AS
 (SELECT SongbookID,
         SongbookName,
         SongbookAbbreviation,
@@ -208,8 +208,8 @@ CREATE TABLE songbooks AS
 COMMIT;
 
 -- Table that conects song instances and songbooks
-DROP TABLE IF EXISTS songinstances_songbooks;
-CREATE TABLE songinstances_songbooks AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_songbooks;
+CREATE TABLE wsf_shiny.songinstances_songbooks AS
 (SELECT songinstances.SongInstanceID,
         SongID,
         songbooks.SongbookID,
@@ -229,8 +229,8 @@ CREATE TABLE songinstances_songbooks AS
 COMMIT;
 
 -- Table of shared songs.
-DROP TABLE IF EXISTS songbook_overlap;
-CREATE TABLE songbook_overlap AS
+DROP TABLE IF EXISTS wsf_shiny.songbook_overlap;
+CREATE TABLE wsf_shiny.songbook_overlap AS
 (SELECT DISTINCT SongbookID1, SongbookName1, IncludeInSearch1,
         SongbookID2, SongbookName2, IncludeInSearch2, si1.SongID
  FROM ((SELECT SongbookID AS SongbookID1,
@@ -252,16 +252,16 @@ CREATE TABLE songbook_overlap AS
 COMMIT;
 
 -- Table of arrangement types
-DROP TABLE IF EXISTS arrangementtypes;
-CREATE TABLE arrangementtypes AS
+DROP TABLE IF EXISTS wsf_shiny.arrangementtypes;
+CREATE TABLE wsf_shiny.arrangementtypes AS
 (SELECT ArrangementTypeID,
         ArrangementType
  FROM wsf.arrangementtypes);
 COMMIT;
 
 -- Table that connects song instances and arrangement types
-DROP TABLE IF EXISTS songinstances_arrangementtypes;
-CREATE TABLE songinstances_arrangementtypes AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_arrangementtypes;
+CREATE TABLE wsf_shiny.songinstances_arrangementtypes AS
 (SELECT DISTINCT SongInstanceID,
         SongID,
         ArrangementTypeID
@@ -271,8 +271,8 @@ CREATE TABLE songinstances_arrangementtypes AS
 COMMIT;
 
 -- Table of key signatures
-DROP TABLE IF EXISTS keysignatures;
-CREATE TABLE keysignatures AS
+DROP TABLE IF EXISTS wsf_shiny.keysignatures;
+CREATE TABLE wsf_shiny.keysignatures AS
 (SELECT KeySignatureID,
         PitchName,
         accidentals.AccidentalID,
@@ -289,8 +289,8 @@ CREATE TABLE keysignatures AS
 COMMIT;
 
 -- Table that connects song instances and key signatures
-DROP TABLE IF EXISTS songinstances_keysignatures;
-CREATE TABLE songinstances_keysignatures AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_keysignatures;
+CREATE TABLE wsf_shiny.songinstances_keysignatures AS
 (SELECT songinstances.SongInstanceID,
         SongID, KeySignatureID
  FROM wsf.songinstances
@@ -299,8 +299,8 @@ CREATE TABLE songinstances_keysignatures AS
 COMMIT;
 
 -- Table of time signatures
-DROP TABLE IF EXISTS timesignatures;
-CREATE TABLE timesignatures AS
+DROP TABLE IF EXISTS wsf_shiny.timesignatures;
+CREATE TABLE wsf_shiny.timesignatures AS
 (SELECT TimeSignatureID,
         TimeSignatureBeat,
         TimeSignatureMeasure
@@ -308,8 +308,8 @@ CREATE TABLE timesignatures AS
 COMMIT;
 
 -- Table that connects song instances and time signatures
-DROP TABLE IF EXISTS songinstances_timesignatures;
-CREATE TABLE songinstances_timesignatures AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_timesignatures;
+CREATE TABLE wsf_shiny.songinstances_timesignatures AS
 (SELECT songinstances.SongInstanceID,
         SongID,
         TimeSignatureID
@@ -319,8 +319,8 @@ CREATE TABLE songinstances_timesignatures AS
 COMMIT;
 
 -- Table of meters
-DROP TABLE IF EXISTS meters;
-CREATE TABLE meters AS
+DROP TABLE IF EXISTS wsf_shiny.meters;
+CREATE TABLE wsf_shiny.meters AS
 (SELECT MeterID,
         Meter,
         Multiplier
@@ -328,8 +328,8 @@ CREATE TABLE meters AS
 COMMIT;
 
 -- Table that connects song instances and meters
-DROP TABLE IF EXISTS songinstances_meters;
-CREATE TABLE songinstances_meters AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_meters;
+CREATE TABLE wsf_shiny.songinstances_meters AS
 (SELECT songinstances.SongInstanceID,
         SongID,
         MeterID
@@ -348,8 +348,8 @@ CREATE TABLE songinstances_meters AS
 COMMIT;
 
 -- Table of lyrics first lines for all song instances
-DROP TABLE IF EXISTS lyrics_first_lines;
-CREATE TABLE lyrics_first_lines AS
+DROP TABLE IF EXISTS wsf_shiny.lyrics_first_lines;
+CREATE TABLE wsf_shiny.lyrics_first_lines AS
 (SELECT SongInstanceID,
         FirstLine,
         RefrainFirstLine
@@ -359,8 +359,8 @@ CREATE TABLE lyrics_first_lines AS
 COMMIT;
 
 -- Table of worship slots
-DROP TABLE IF EXISTS worshipslots;
-CREATE TABLE worshipslots AS
+DROP TABLE IF EXISTS wsf_shiny.worshipslots;
+CREATE TABLE wsf_shiny.worshipslots AS
 (SELECT WorshipSlotID,
         WorshipSlot,
         WorshipSlotOrder
@@ -368,16 +368,16 @@ CREATE TABLE worshipslots AS
 COMMIT;
 
 -- Table that connects song instances and lyrics
-DROP TABLE IF EXISTS songinstances_lyrics;
-CREATE TABLE songinstances_lyrics AS
+DROP TABLE IF EXISTS wsf_shiny.songinstances_lyrics;
+CREATE TABLE wsf_shiny.songinstances_lyrics AS
 (SELECT SongInstanceID,
         LyricsID
  FROM wsf.songinstances_lyrics);
 COMMIT;
 
 -- Table that connects lyrics and translations
-DROP TABLE IF EXISTS lyrics_translations;
-CREATE TABLE lyrics_translations AS
+DROP TABLE IF EXISTS wsf_shiny.lyrics_translations;
+CREATE TABLE wsf_shiny.lyrics_translations AS
 (SELECT lyrics.LyricsID,
         TranslatedFromID,
         CASE WHEN lyrics.LanguageID = sources.LanguageID
@@ -392,15 +392,22 @@ CREATE TABLE lyrics_translations AS
 COMMIT;
 
 -- Table that connects lyrics and artists
-DROP TABLE IF EXISTS lyrics_artists;
-CREATE TABLE lyrics_artists AS
+DROP TABLE IF EXISTS wsf_shiny.lyrics_artists;
+CREATE TABLE wsf_shiny.lyrics_artists AS
 (SELECT LyricsID, ArtistID
  FROM wsf.lyrics_artists);
 COMMIT;
 
+-- Table that connects lyrics and files
+DROP TABLE IF EXISTS wsf_shiny.lyrics_files;
+CREATE TABLE wsf_shiny.lyrics_files AS
+(SELECT LyricsID, FileName
+ FROM wsf.lyrics_files);
+COMMIT;
+
 -- Table of worship history
-DROP TABLE IF EXISTS worshiphistory;
-CREATE TABLE worshiphistory AS
+DROP TABLE IF EXISTS wsf_shiny.worshiphistory;
+CREATE TABLE wsf_shiny.worshiphistory AS
 (SELECT WorshipHistoryID,
         SongInstanceID,
         WorshipHistoryDate,
@@ -408,16 +415,60 @@ CREATE TABLE worshiphistory AS
  FROM wsf.worshiphistory);
 COMMIT;
 
--- Table that connects metrical psalms and lyrics
-DROP TABLE IF EXISTS metricalpsalms_lyrics;
-CREATE TABLE metricalpsalms_lyrics AS
-(SELECT CONCAT('MP', MetricalPsalmID) AS PsalmSongID,
-        metricalpsalms_lyrics.LyricsID, FirstLine,
-        ROW_NUMBER() OVER (PARTITION BY MetricalPsalmID
+-- Table of metrical psalms
+DROP TABLE IF EXISTS wsf_shiny.metricalpsalms;
+CREATE TABLE wsf_shiny.metricalpsalms AS
+(SELECT metricalpsalms.MetricalPsalmID,
+        metricalpsalms.PsalmNumber,
+        metricalpsalms_prettyscripturelists.PrettyScriptureList
+ FROM wsf.metricalpsalms
+      LEFT JOIN wsf.metricalpsalms_prettyscripturelists
+      ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID);
+COMMIT;
+
+-- Table that connects psalm songs and lyrics
+DROP TABLE IF EXISTS wsf_shiny.psalmsongs_lyrics;
+CREATE TABLE wsf_shiny.psalmsongs_lyrics AS
+(SELECT DISTINCT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
+        lyrics.LyricsID, lyrics.FirstLine, lyrics.LanguageID,
+        public_domain.PublicDomain,
+        ROW_NUMBER() OVER (PARTITION BY psalmsongs.PsalmSongID,
+                                        songinstances.SongInstanceID
+                           ORDER BY lyrics.LyricsID) AS LyricsOrder
+ FROM wsf.psalmsongs
+      INNER JOIN wsf.songinstances
+      ON psalmsongs.SongID = songinstances.SongID
+      INNER JOIN wsf.songinstances_lyrics
+      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+      INNER JOIN wsf.lyrics
+      ON songinstances_lyrics.LyricsID = lyrics.LyricsID
+      INNER JOIN (SELECT LyricsID,
+                         CASE WHEN MIN(CopyrightHolderID) = 1
+                                   THEN 'Y'
+                              ELSE 'N'
+                         END AS PublicDomain
+                  FROM wsf.lyrics_copyrightholders
+                  GROUP BY LyricsID) public_domain
+      ON songinstances_lyrics.LyricsID = public_domain.LyricsID
+ UNION ALL
+ SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
+		lyrics.LyricsID, lyrics.FirstLine, lyrics.LanguageID,
+        public_domain.PublicDomain,
+        ROW_NUMBER() OVER (PARTITION BY metricalpsalms.MetricalPsalmID
                            ORDER BY AvgVerse) AS LyricsOrder
- FROM wsf.metricalpsalms_lyrics
-      LEFT JOIN wsf.lyrics
-	  ON metricalpsalms_lyrics.LyricsID = lyrics.LyricsID
+ FROM wsf.metricalpsalms
+      INNER JOIN wsf.metricalpsalms_lyrics
+      ON metricalpsalms.MetricalPsalmID = metricalpsalms_lyrics.MetricalPsalmID
+      INNER JOIN wsf.lyrics
+      ON metricalpsalms_lyrics.LyricsID = lyrics.LyricsID
+      INNER JOIN (SELECT LyricsID,
+                         CASE WHEN MIN(CopyrightHolderID) = 1
+                                   THEN 'Y'
+                              ELSE 'N'
+                         END AS PublicDomain
+                  FROM wsf.lyrics_copyrightholders
+                  GROUP BY LyricsID) public_domain
+      ON lyrics.LyricsID = public_domain.LyricsID
       LEFT JOIN (SELECT lyrics_scripturereferences.LyricsID,
                         AVG(Verse) AS AvgVerse
                  FROM wsf.lyrics_scripturereferences
@@ -435,28 +486,85 @@ CREATE TABLE metricalpsalms_lyrics AS
 COMMIT;
 
 -- Table of psalm songs
-DROP TABLE IF EXISTS psalmsongs;
-CREATE TABLE psalmsongs AS
-(SELECT CONCAT('PS', PsalmSongID) AS PsalmSongID,
-        PsalmNumber, psalmsongs.SongID, PsalmSongTypeID,
-        SongName AS PsalmSongTitle
+DROP TABLE IF EXISTS wsf_shiny.psalmsongs;
+CREATE TABLE wsf_shiny.psalmsongs AS
+(SELECT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
+        PsalmNumber, psalmsongs.SongID, psalmsongs.PsalmSongTypeID,
+        PsalmSongType, SongName AS PsalmSongTitle,
+		PrettyScriptureList
  FROM wsf.psalmsongs
+      LEFT JOIN wsf.psalmsongtypes
+      ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
       LEFT JOIN wsf.songs
       ON psalmsongs.SongID = songs.SongID
+      LEFT JOIN wsf.psalmsongs_prettyscripturelists
+      ON psalmsongs.PsalmSongID = psalmsongs_prettyscripturelists.PsalmSongID
  UNION ALL
  SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
         PsalmNumber, NULL AS SongID, NULL AS PsalmSongTypeID,
-        FirstLine AS PsalmSongTitle
+        'Paraphrase' AS PsalmSongType, FirstLine AS PsalmSongTitle,
+        PrettyScriptureList
  FROM wsf.metricalpsalms
       INNER JOIN (SELECT PsalmSongID, FirstLine
-                  FROM wsf_shiny.metricalpsalms_lyrics
+                  FROM wsf_shiny.psalmsongs_lyrics
                   WHERE LyricsOrder = 1) not_psalmsongs
-      ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = not_psalmsongs.PsalmSongID);
+      ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = not_psalmsongs.PsalmSongID
+	  LEFT JOIN wsf.metricalpsalms_prettyscripturelists
+      ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID);
 COMMIT;
 
 -- Table of psalm song types
-DROP TABLE IF EXISTS psalmsongtypes;
-CREATE TABLE psalmsongtypes AS
+DROP TABLE IF EXISTS wsf_shiny.psalmsongtypes;
+CREATE TABLE wsf_shiny.psalmsongtypes AS
 (SELECT PsalmSongTypeID, PsalmSongType
  FROM wsf.psalmsongtypes);
+COMMIT;
+
+-- Table that connects psalm songs and alternative tunes
+DROP TABLE IF EXISTS wsf_shiny.psalmsongs_alternativetunes;
+CREATE TABLE wsf_shiny.psalmsongs_alternativetunes
+(PsalmSongID varchar(10),
+ TuneID int,
+ TuneDisplayName varchar(100),
+ Notes varchar(1000));
+INSERT INTO wsf_shiny.psalmsongs_alternativetunes
+(SELECT PsalmSongID, tunes.TuneID,
+        CONCAT(CASE WHEN tunes.RealTuneName = 1
+                         THEN CONCAT(TuneName, ' (')
+                    ELSE ''
+               END,
+               COALESCE(tunes.CanonicalSongName,
+                        songs.SongName),
+               CASE WHEN tunes.RealTuneName = 1
+                         THEN ')'
+                    ELSE ''
+               END) AS TuneDisplayName,
+        REPLACE(REPLACE(Notes, '#T#',
+                        CONCAT('"',
+                               COALESCE(tunes.CanonicalSongName,
+                                        songs.SongName),
+                               '"')),
+                '#L#', CONCAT('"', PsalmSongTitle, '"')) AS Notes
+ FROM wsf_shiny.psalmsongs
+      INNER JOIN wsf.alternativetunes
+      ON (PsalmSongID LIKE 'PS%'
+          AND psalmsongs.SongID = alternativetunes.SongID)
+         OR (PsalmSongID LIKE 'MP%'
+             AND SUBSTRING(PsalmSongID, 3) = MetricalPsalmID)
+      INNER JOIN wsf.tunes
+      ON alternativetunes.TuneID = tunes.TuneID
+      LEFT JOIN (SELECT TuneID, MAX(SongID) AS SongID
+                 FROM wsf.tunes_canonicalsongs
+                 GROUP BY TuneID
+                 HAVING COUNT(*) = 1) one_canonical_song
+      ON tunes.TuneID = one_canonical_song.TuneID
+      LEFT JOIN wsf.songs
+      ON one_canonical_song.SongID = songs.SongID);
+COMMIT;
+
+-- Table that connects tunes and canonical songs
+DROP TABLE IF EXISTS wsf_shiny.tunes_canonicalsongs;
+CREATE TABLE wsf_shiny.tunes_canonicalsongs AS
+(SELECT TuneID, SongID
+ FROM wsf.tunes_canonicalsongs);
 COMMIT;

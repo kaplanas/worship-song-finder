@@ -17,6 +17,7 @@ library(stringr)
 library(DT)
 library(RColorBrewer)
 library(tibble)
+library(xml2)
 
 # version = "ctcc"
 version = "general"

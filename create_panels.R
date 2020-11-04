@@ -461,7 +461,7 @@ all.psalm.song.panel.titles = lapply(
       other.titles = sort(unique(song.instance.info.df$title[song.instance.info.df$song.id == song.id &
                                                                !startsWith(main.title, song.instance.info.df$title)]))
     } else if(grepl("^MP", psalmSongID)) {
-      other.titles = metrical.psalms.lyrics.df %>%
+      other.titles = psalm.songs.lyrics.df %>%
         filter(psalm.song.id == psalmSongID,
                lyrics.order > 1) %>%
         arrange(lyrics.order) %>%
@@ -483,10 +483,85 @@ psalm.song.type.colors = brewer.pal(4, "Set1")[c(3, 2, 4, 1)]
 all.psalm.song.panels = lapply(
   psalm.songs.df$psalm.song.id,
   function(psalmSongID) {
-    main.title = psalm.songs.df %>%
+    psalm.song.row = psalm.songs.df[psalm.songs.df$psalm.song.id == psalmSongID,]
+    current.song.id = psalm.song.row$song.id
+    current.psalm.number = psalm.song.row$psalm.number
+    # Main title
+    main.title = h1(psalm.song.row$psalm.song.title)
+    # Psalm song type
+    song.info.panel.list = list(br())
+    psalm.song.type = h3(psalm.song.row$psalm.song.type)
+    song.info.panel.list[[length(song.info.panel.list) + 1]] = psalm.song.type
+    # Songbook entries
+    songbook.entries = song.info.df %>%
+      filter(song.id == current.song.id) %>%
+      pull(songbook.entries)
+    if(isTruthy(songbook.entries)) {
+      song.info.panel.list[[length(song.info.panel.list) + 1]] =
+        tags$p(tags$b("Songbooks:"), songbook.entries)
+    }
+    # Psalm verses
+    psalm.verses = psalm.song.row$pretty.scripture.list
+    song.info.panel.list[[length(song.info.panel.list) + 1]] =
+      tags$p(tags$b("Verses:"), psalm.verses)
+    # Lyrics first lines
+    lyrics.first.lines = psalm.songs.lyrics.df %>%
       filter(psalm.song.id == psalmSongID) %>%
-      pull(psalm.song.title)
-    psalm.song.info.to.return = h1(main.title)
+      pull(first.line)
+    song.info.panel.list[[length(song.info.panel.list) + 1]] =
+      span(lapply(lyrics.first.lines,
+                  function(lyricsLine) {
+                    list(tags$i(lyricsLine), br())
+                  }))
+    all.psalm.song.panels = list(tabPanel("Song info", song.info.panel.list))
+    # Lyrics
+    current.lyrics.df = psalm.songs.lyrics.df %>%
+      filter(psalm.song.id == psalmSongID,
+             public.domain == "Y")
+    for(l in unique(current.lyrics.df$language.id)) {
+      l.name = languages.df %>%
+        filter(language.id == l) %>%
+        pull(language.name)
+      current.lyrics = current.lyrics.df %>%
+        filter(language.id == l) %>%
+        inner_join(full.lyrics.df, by = "lyrics.id") %>%
+        pull(full.lyrics)
+      all.psalm.song.panels[[length(all.psalm.song.panels) + 1]] =
+        tabPanel(paste("Lyrics",
+                       ifelse(l == 1, "",
+                              paste(" (", l.name, ")", sep = "")),
+                       sep = ""),
+                 tags$p(),
+                 HTML(current.lyrics))
+    }
+    # Alternative tunes
+    current.alternatives.df = alternative.tunes.df %>%
+      filter(psalm.song.id == psalmSongID) %>%
+      arrange(tune.display.name)
+    if(nrow(current.alternatives.df) > 0) {
+      all.psalm.song.panels[[length(all.psalm.song.panels) + 1]] =
+        tabPanel("Alternative tunes",
+                 tags$p(),
+                 lapply(1:nrow(current.alternatives.df),
+                        function(x) {
+                          div.contents = list(tags$b(current.alternatives.df$tune.display.name[x]))
+                          if(isTruthy(current.alternatives.df$entry.string[x])) {
+                            div.contents[[length(div.contents) + 1]] = tags$br()
+                            div.contents[[length(div.contents) + 1]] =
+                              tags$i(current.alternatives.df$entry.string[x])
+                          }
+                          if(isTruthy(current.alternatives.df$notes[x])) {
+                            div.contents[[length(div.contents) + 1]] = tags$br()
+                            div.contents[[length(div.contents) + 1]] =
+                              current.alternatives.df$notes[x]
+                          }
+                          div.contents[[length(div.contents) + 1]] = tags$p()
+                          tags$div(div.contents)
+                        }))
+    }
+    # Combine all info
+    info.tabs = do.call(tabsetPanel, all.psalm.song.panels)
+    psalm.song.info.to.return = list(main.title, info.tabs)
     return(psalm.song.info.to.return)
   }
 )
