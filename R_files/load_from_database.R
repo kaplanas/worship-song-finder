@@ -314,7 +314,7 @@ Encoding(psalm.songs.df$psalm.song.title) = "UTF-8"
 
 # Get table of full lyrics
 full.lyrics.sql = "SELECT LyricsID, FullLyrics
-                   FROM wsf.all_lyrics"
+                   FROM wsf_shiny.full_lyrics"
 full.lyrics.df = dbGetQuery(wsf.shiny.con, full.lyrics.sql) %>%
   dplyr::select(lyrics.id = LyricsID, full.lyrics = FullLyrics)
 Encoding(full.lyrics.df$full.lyrics) = "UTF-8"
