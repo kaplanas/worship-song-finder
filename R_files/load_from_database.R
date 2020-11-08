@@ -464,7 +464,8 @@ song.instance.info.df = song.instances.df %>%
               arrange(songbook.name, entry.number) %>%
               summarise(songbook.entries = paste(entry.string,
                                                  collapse = ", ")) %>%
-              ungroup(),
+              ungroup() %>%
+              mutate(songbook.entries = na_if(songbook.entries, "NA")),
             by = c("song.instance.id")) %>%
   left_join(song.instances.arrangement.types.df %>%
               inner_join(arrangement.types.df, by = "arrangement.type.id") %>%
@@ -601,7 +602,8 @@ song.info.df = songs.df %>%
               arrange(songbook.abbreviation, entry.number) %>%
               summarise(songbook.entries = paste(entry.string,
                                                  collapse = ", ")) %>%
-              ungroup(),
+              ungroup() %>%
+              mutate(songbook.entries = na_if(songbook.entries, "NA")),
             by = c("song.id")) %>%
   mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
                        NA, pmax(last.lyrics.year, last.tune.year)),
@@ -649,4 +651,5 @@ alternative.tunes.df = alternative.tunes.df %>%
   group_by(psalm.song.id, tune.id, tune.display.name, notes, song.id) %>%
   arrange(songbook.abbreviation, entry.number) %>%
   summarise(entry.string = paste(entry.string, collapse = ", ")) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(entry.string = na_if(entry.string,"NA"))
