@@ -3,9 +3,20 @@ USE wsf_shiny;
 -- Table of songs
 DROP TABLE IF EXISTS wsf_shiny.songs;
 CREATE TABLE wsf_shiny.songs AS
-(SELECT SongID,
-        SongName
- FROM wsf.songs);
+(SELECT songs.SongID,
+        SongName,
+        CASE WHEN copyrighted_songs.SongID IS NULL THEN 'N'
+             ELSE 'Y'
+        END AS Copyrighted
+ FROM wsf.songs
+      LEFT JOIN (SELECT DISTINCT songinstances.SongID
+                 FROM wsf.songinstances
+                      INNER JOIN wsf.songinstances_lyrics
+                      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+                      INNER JOIN wsf.lyrics_copyrightholders
+                      ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
+                 WHERE lyrics_copyrightholders.CopyrightHolderID <> 1) copyrighted_songs
+      ON songs.SongID = copyrighted_songs.SongID);
 COMMIT;
 
 -- Table of song instances
@@ -398,11 +409,11 @@ CREATE TABLE wsf_shiny.lyrics_artists AS
  FROM wsf.lyrics_artists);
 COMMIT;
 
--- Table that connects lyrics and files
-DROP TABLE IF EXISTS wsf_shiny.lyrics_files;
-CREATE TABLE wsf_shiny.lyrics_files AS
-(SELECT LyricsID, FileName
- FROM wsf.lyrics_files);
+-- Table of full lyrics
+DROP TABLE IF EXISTS wsf_shiny.full_lyrics;
+CREATE TABLE wsf_shiny.full_lyrics AS
+(SELECT LyricsID, FullLyrics
+ FROM wsf.all_lyrics);
 COMMIT;
 
 -- Table of worship history
@@ -534,7 +545,7 @@ INSERT INTO wsf_shiny.psalmsongs_alternativetunes
                     ELSE ''
                END,
                COALESCE(tunes.CanonicalSongName,
-                        songs.SongName),
+                        canonical_song.SongName),
                CASE WHEN tunes.RealTuneName = 1
                          THEN ')'
                     ELSE ''
@@ -542,18 +553,10 @@ INSERT INTO wsf_shiny.psalmsongs_alternativetunes
         REPLACE(REPLACE(Notes, '#T#',
                         CONCAT('"',
                                COALESCE(tunes.CanonicalSongName,
-                                        songs.SongName),
+                                        canonical_song.SongName),
                                '"')),
                 '#L#', CONCAT('"', PsalmSongTitle, '"')) AS Notes
  FROM wsf_shiny.psalmsongs
-      LEFT JOIN (SELECT DISTINCT songinstances.SongID
-                 FROM wsf.songinstances
-                      INNER JOIN wsf.songinstances_lyrics
-                      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-                      INNER JOIN wsf.lyrics_copyrightholders
-                      ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
-                 WHERE lyrics_copyrightholders.CopyrightHolderID <> 1) copyrighted_songs
-      ON psalmsongs.SongID = copyrighted_songs.SongID
       INNER JOIN wsf.alternativetunes
       ON (PsalmSongID LIKE 'PS%'
           AND psalmsongs.SongID = alternativetunes.SongID)
@@ -564,14 +567,17 @@ INSERT INTO wsf_shiny.psalmsongs_alternativetunes
       INNER JOIN wsf.tunes_copyrightholders
       ON tunes.TuneID = tunes_copyrightholders.TuneID
          AND tunes_copyrightholders.CopyrightHolderID = 1
+      LEFT JOIN wsf_shiny.songs
+      ON psalmsongs.SongID = songs.SongID
+         AND songs.Copyrighted = 'Y'
       LEFT JOIN (SELECT TuneID, MAX(SongID) AS SongID
                  FROM wsf.tunes_canonicalsongs
                  GROUP BY TuneID
                  HAVING COUNT(*) = 1) one_canonical_song
       ON tunes.TuneID = one_canonical_song.TuneID
-      LEFT JOIN wsf.songs
-      ON one_canonical_song.SongID = songs.SongID
- WHERE copyrighted_songs.SongID IS NULL);
+      LEFT JOIN wsf.songs canonical_song
+      ON one_canonical_song.SongID = canonical_song.SongID
+ WHERE songs.SongID IS NULL);
 COMMIT;
 
 -- Table that connects tunes and canonical songs
