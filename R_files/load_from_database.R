@@ -132,14 +132,17 @@ song.instances.songbooks.df = dbGetQuery(wsf.shiny.con,
   mutate(include.in.search = IncludeInSearch == "Y",
          entry.string.no.name = paste(case_when(is.na(SongbookVolume) ~ "",
                                                 SongbookID %in% c(0, 6) ~ "",
-                                                T ~ SongbookVolume),
+                                                T ~ paste("(",
+                                                          SongbookVolume,
+                                                          ")",
+                                                          sep = "")),
                                       case_when(SongbookID == 12 ~ "",
                                                 is.na(EntryNumber) ~ "",
                                                 EntryNumber == "" ~ "",
                                                 T ~ paste(" ", EntryNumber,
                                                           sep = "")),
                                       sep = ""),
-         entry.string = paste(SongbookAbbreviation,
+         entry.string = paste(SongbookName,
                               case_when(is.na(SongbookVolume) ~ "",
                                         SongbookID %in% c(0, 6) ~ "",
                                         T ~ " "),
@@ -458,7 +461,7 @@ ints.to.range = function(ints) {
 song.instance.info.df = song.instances.df %>%
   left_join(song.instances.songbooks.df %>%
               group_by(song.instance.id) %>%
-              arrange(songbook.abbreviation, entry.number) %>%
+              arrange(songbook.name, entry.number) %>%
               summarise(songbook.entries = paste(entry.string,
                                                  collapse = ", ")) %>%
               ungroup(),

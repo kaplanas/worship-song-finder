@@ -298,8 +298,9 @@ songbook.comparison.panel = tabPanel("Songbook comparison",
 
 # Songbook overlap panel
 songbook.overlap.panel = tabPanel("Songbook overlap",
+                                  helpText(tags$p(tags$b("Just for fun, a way to explore what different songbooks have in common."))),
                                   helpText(tags$p("Click on a songbook for a list of songs, with the volume (if applicable) and number of each song.")),
-                                  helpText(tags$p("Click on a link for a list of songs the two songbooks have in common.")),
+                                  helpText(tags$p("Click on a link for a list of songs the two songbooks have in common.  Thicker links mean the songbooks share more songs.")),
                                   helpText(tags$p("Click and drag songbooks to rearrange the graph.")),
                                   visNetworkOutput("songbookOverlap",
                                                    width = "1100px",
