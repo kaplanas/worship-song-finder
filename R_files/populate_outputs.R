@@ -6,7 +6,7 @@ get.song.list.results = reactive({
   results.df = songs.df %>%
     select(song.id, song.name)
   # Filter the songs
-  source("filter_results.R", local = T)
+  source("R_files/filter_results.R", local = T)
   # Order the results
   results.df = inner_join(results.df, songs.df,
                           by = c("song.id", "song.name")) %>%

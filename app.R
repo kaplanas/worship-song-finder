@@ -19,10 +19,8 @@ library(RColorBrewer)
 library(tibble)
 library(xml2)
 
-# version = "ctcc"
-version = "general"
-
-source("database_connection_local.R", local = T)
+source("version.R", local = T)
+source("R_files/database_connection_local.R", local = T)
 
 #### Useful initial settings ####
 
@@ -33,7 +31,7 @@ on.exit(dbDisconnect(wsf.shiny.con), add = T)
 dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
 
 # Load stuff from the database
-source("load_from_database.R", local = T)
+source("R_files/load_from_database.R", local = T)
 
 # Settings for date inputs and outputs
 date.input.sep = " to "
@@ -43,7 +41,7 @@ date.input.min = "2017-03-26"
 date.input.start = seq(Sys.Date(), length = 7, by = "-1 month")[7]
 
 # Create content panels
-source("create_panels.R", local = T)
+source("R_files/create_panels.R", local = T)
 
 # Plotting theme
 theme_set(theme_bw())
@@ -211,7 +209,7 @@ server <- function(input, output, session) {
   })
 
   # Populate outputs
-  source("populate_outputs.R", local = T)
+  source("R_files/populate_outputs.R", local = T)
   
 }
 
