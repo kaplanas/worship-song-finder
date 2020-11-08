@@ -347,7 +347,8 @@ all.song.panel.titles = lapply(
   function(songID) {
     main.title = song.info.df$title[song.info.df$song.id == songID]
     other.titles = sort(unique(song.instance.info.df$title[song.instance.info.df$song.id == songID &
-                                                           !startsWith(main.title, song.instance.info.df$title)]))
+                                                           !startsWith(tolower(main.title),
+                                                                       tolower(song.instance.info.df$title))]))
     tags$span(main.title,
          lapply(other.titles,
                 function(otherTitle) {
