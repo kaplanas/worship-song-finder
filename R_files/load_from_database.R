@@ -293,7 +293,8 @@ if(version == "ctcc") {
                   song.instance.id = SongInstanceID,
                   worship.history.date = WorshipHistoryDate,
                   worship.slot.id = WorshipSlotID)
-  worship.history.df$worship.history.date = as.Date(worship.history.df$worship.history.date)
+  worship.history.df$worship.history.date = as.Date(worship.history.df$worship.history.date,
+                                                    format = "%m/%d/%Y")
   worship.history.df = filter(worship.history.df,
                               format(worship.history.df$worship.history.date, "%Y") >= 2017)
 }
