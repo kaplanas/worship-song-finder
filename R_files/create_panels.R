@@ -347,14 +347,15 @@ all.song.panel.titles = lapply(
   song.info.df$song.id,
   function(songID) {
     main.title = song.info.df$title[song.info.df$song.id == songID]
+    main.title.lower = song.info.df$title.lower[song.info.df$song.id == songID]
     other.titles = sort(unique(song.instance.info.df$title[song.instance.info.df$song.id == songID &
-                                                           !startsWith(tolower(main.title),
-                                                                       tolower(song.instance.info.df$title))]))
+                                                             !startsWith(main.title.lower,
+                                                                         song.instance.info.df$title.lower)]))
     tags$span(main.title,
-         lapply(other.titles,
-                function(otherTitle) {
-                  list(br(), tags$i(otherTitle))
-                }), display = "flex", justify = "space-between")
+              lapply(other.titles,
+                     function(otherTitle) {
+                       list(br(), tags$i(otherTitle))
+                     }), display = "flex", justify = "space-between")
   }
 )
 names(all.song.panel.titles) = as.character(song.info.df$song.id)
@@ -376,72 +377,7 @@ all.song.panels = lapply(
     song.info.to.return = c(initial.song.info.to.return, lapply(
       song.instance.info.df$song.instance.id[song.instance.info.df$song.id == songID],
       function(songInstanceID) {
-        song.instance.row = song.instance.info.df[song.instance.info.df$song.instance.id == songInstanceID,]
-        # Song instance title
-        panel.list.to.return = list(hr(), h3(song.instance.row$title))
-        # Song instance songbook entries
-        if(!is.na(song.instance.row$songbook.entries)) {
-          songbook.entries = p(song.instance.row$songbook.entries)
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = songbook.entries
-        }
-        # Song instance arrangement types
-        if(!is.na(song.instance.row$arrangement.types)) {
-          arrangement.types = p(song.instance.row$arrangement.types)
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = arrangement.types
-        }
-        # Song instance key and time signatures
-        if(!is.na(song.instance.row$key.signatures) | !is.na(song.instance.row$time.signatures)) {
-          key.time.signatures = p(paste(song.instance.row$key.signatures,
-                                        ifelse(!is.na(song.instance.row$key.signatures) & !is.na(song.instance.row$time.signatures), "; ", ""),
-                                        song.instance.row$time.signatures, sep = ""))
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = key.time.signatures
-        }
-        # Song instance scripture references
-        if(!is.na(song.instance.row$scripture.references)) {
-          scripture.references = p(song.instance.row$scripture.references)
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = scripture.references
-        }
-        # Song instance lyricists and composers
-        if(!is.na(song.instance.row$lyricists) & !is.na(song.instance.row$composers) & song.instance.row$lyricists == song.instance.row$composers) {
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Lyrics & Music:", song.instance.row$lyricists))
-        }
-        else {
-          if(!is.na(song.instance.row$lyricists)) {
-            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Lyrics:", song.instance.row$lyricists))
-          }
-          if(!is.na(song.instance.row$composers)) {
-            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Music:", song.instance.row$composers))
-          }
-        }
-        # Song instance arrangers
-        if(!is.na(song.instance.row$arrangers)) {
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Arrangement:", song.instance.row$arrangers))
-        }
-        # Song instance copyright info
-        if(!is.na(song.instance.row$lyrics.copyright) & !is.na(song.instance.row$tune.copyright) & song.instance.row$lyrics.copyright == song.instance.row$tune.copyright) {
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(song.instance.row$lyrics.copyright)
-        }
-        else {
-          if(!is.na(song.instance.row$lyrics.copyright)) {
-            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Lyrics", song.instance.row$lyrics.copyright))
-          }
-          if(!is.na(song.instance.row$tune.copyright)) {
-            panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Music", song.instance.row$tune.copyright))
-          }
-        }
-        if(!is.na(song.instance.row$arrangement.copyright)) {
-          panel.list.to.return[[length(panel.list.to.return) + 1]] = p(paste("Arrangement", song.instance.row$arrangement.copyright))
-        }
-        # Song instances lyrics first lines
-        song.instance.lyrics = lyrics.first.lines.df$lyrics.line[lyrics.first.lines.df$song.instance.id == songInstanceID &
-                                                                 !is.na(lyrics.first.lines.df$lyrics.line)]
-        panel.list.to.return = list(panel.list.to.return,
-                                    span(lapply(song.instance.lyrics,
-                                                function(lyricsLine) {
-                                                  list(tags$i(lyricsLine), br())
-                                                })))
-        # Return new content panel
-        return(panel.list.to.return)
+        return(HTML(song.instances.df$html[song.instances.df$song.instance.id == songInstanceID]))
       }
     ))
     return(song.info.to.return)
@@ -506,6 +442,11 @@ all.psalm.song.panels = lapply(
     psalm.verses = psalm.song.row$pretty.scripture.list
     song.info.panel.list[[length(song.info.panel.list) + 1]] =
       tags$p(tags$b("Verses:"), psalm.verses)
+    # Artists
+    artists = psalm.song.row$artists
+    if(isTruthy(artists)) {
+      song.info.panel.list[[length(song.info.panel.list) + 1]] = tags$p(artists)
+    }
     # Lyrics first lines
     lyrics.first.lines = psalm.songs.lyrics.df %>%
       filter(psalm.song.id == psalmSongID) %>%

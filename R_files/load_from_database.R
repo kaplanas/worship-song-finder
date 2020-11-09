@@ -1,43 +1,61 @@
-#### Download tables from the database ####
+#### General filter ####
 
-# Get table of songs
-songs.sql = "SELECT SongID, SongName
-             FROM wsf_shiny.songs"
-songs.df = dbGetQuery(wsf.shiny.con, songs.sql) %>%
-  dplyr::select(song.id = SongID, song.name = SongName) %>%
-  mutate(song.name.sort = gsub("^['\"¡¿]", "", song.name))
-Encoding(songs.df$song.name) = "UTF-8"
-Encoding(songs.df$song.name.sort) = "UTF-8"
+# Filter out material from song(book)s we don't want to show
+if(version == "general") {
+  filter.sql = "WHERE IncludeInSearch = 'Y'"
+} else {
+  filter.sql = ""
+}
+
+#### Song instance info ####
 
 # Get table of song instances
-song.instances.sql = "SELECT SongInstanceID, SongInstance, ArrangementID,
-                             SongID, LastLyricsYear, LyricsCopyright,
-                             LastTuneYear, TuneCopyright, ArrangementCopyright
+song.instances.sql = "SELECT SongInstanceID, SongInstance, SongInstanceLower,
+                             ArrangementID, SongID, LastLyricsYear,
+                             LyricsCopyright, LastTuneYear, TuneCopyright,
+                             ArrangementCopyright, ArrangementTypes, Lyricists,
+                             Composers, Arrangers, SongbookEntries, NumEntries,
+                             KeySignatures, TimeSignatures, ScriptureReferences,
+                             HTML
                       FROM wsf_shiny.songinstances"
-song.instances.df = dbGetQuery(wsf.shiny.con, song.instances.sql) %>%
-  mutate(lyrics.copyright = gsub("\\(C\\)", "©", LyricsCopyright),
-         tune.copyright = gsub("\\(C\\)", "©", TuneCopyright),
-         arrangement.copyright = gsub("\\(C\\)", "©", ArrangementCopyright)) %>%
+song.instances.df = dbGetQuery(wsf.shiny.con,
+                               paste(song.instances.sql,
+                                     filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.instance = SongInstance,
+                song.instance.lower = SongInstanceLower,
                 arrangement.id = ArrangementID, song.id = SongID,
-                last.lyrics.year = LastLyricsYear, lyrics.copyright,
-                last.tune.year = LastTuneYear, tune.copyright,
-                arrangement.copyright)
+                last.lyrics.year = LastLyricsYear,
+                lyrics.copyright = LyricsCopyright,
+                last.tune.year = LastTuneYear, tune.copyright = TuneCopyright,
+                arrangement.copyright = ArrangementCopyright,
+                arrangement.types = ArrangementTypes, lyricists = Lyricists,
+                composers = Composers, arrangers = Arrangers,
+                songbook.entries = SongbookEntries, num.entries = NumEntries,
+                key.signatures = KeySignatures,
+                time.signatures = TimeSignatures,
+                scripture.references = ScriptureReferences, html = HTML)
 Encoding(song.instances.df$song.instance) = "UTF-8"
+Encoding(song.instances.df$song.instance.lower) = "UTF-8"
 Encoding(song.instances.df$lyrics.copyright) = "UTF-8"
 Encoding(song.instances.df$tune.copyright) = "UTF-8"
 Encoding(song.instances.df$arrangement.copyright) = "UTF-8"
+Encoding(song.instances.df$arrangement.types) = "UTF-8"
+Encoding(song.instances.df$lyricists) = "UTF-8"
+Encoding(song.instances.df$composers) = "UTF-8"
+Encoding(song.instances.df$arrangers) = "UTF-8"
+Encoding(song.instances.df$songbook.entries) = "UTF-8"
+Encoding(song.instances.df$key.signatures) = "UTF-8"
+Encoding(song.instances.df$time.signatures) = "UTF-8"
+Encoding(song.instances.df$scripture.references) = "UTF-8"
+Encoding(song.instances.df$html) = "UTF-8"
 
 # Get table of artists
-artists.sql = "SELECT ArtistID, LastName, FirstName, GenderName
+artists.sql = "SELECT ArtistID, LastName, FirstName, ArtistName, GenderName
                FROM wsf_shiny.artists"
-artists.df = dbGetQuery(wsf.shiny.con, artists.sql) %>%
-  mutate(artist.name = case_when(is.na(FirstName) ~ LastName,
-                                 FirstName == "" ~ LastName,
-                                 T ~ paste(FirstName, LastName,
-                                           sep = " "))) %>%
+artists.df = dbGetQuery(wsf.shiny.con, paste(artists.sql, filter.sql)) %>%
   dplyr::select(artist.id = ArtistID, last.name = LastName,
-                first.name = FirstName, artist.name, gender = GenderName)
+                first.name = FirstName, artist.name = ArtistName,
+                gender = GenderName)
 Encoding(artists.df$last.name) = "UTF-8"
 Encoding(artists.df$first.name) = "UTF-8"
 Encoding(artists.df$artist.name) = "UTF-8"
@@ -47,22 +65,10 @@ Encoding(artists.df$gender) = "UTF-8"
 song.instances.artists.sql = "SELECT SongInstanceID, SongID, ArtistID, Role
                               FROM wsf_shiny.songinstances_artists"
 song.instances.artists.df = dbGetQuery(wsf.shiny.con,
-                                       song.instances.artists.sql) %>%
+                                       paste(song.instances.artists.sql,
+                                             filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 artist.id = ArtistID, role = Role)
-
-# Get table of topics
-topics.sql = "SELECT TopicID, TopicName
-              FROM wsf_shiny.topics"
-topics.df = dbGetQuery(wsf.shiny.con, topics.sql) %>%
-  dplyr::select(topic.id = TopicID, topic.name = TopicName)
-Encoding(topics.df$topic.name) = "UTF-8"
-
-# Get table that connects songs and topics
-songs.topics.sql = "SELECT SongID, TopicID
-                    FROM wsf_shiny.songs_topics"
-songs.topics.df = dbGetQuery(wsf.shiny.con, songs.topics.sql) %>%
-  dplyr::select(song.id = SongID, topic.id = TopicID)
 
 # Get table of books of the Bible
 bible.books.sql = "SELECT BookID, BookName, BookAbbreviation
@@ -78,7 +84,8 @@ scripture.references.sql = "SELECT ScriptureReferenceID, BookID, BookName,
                                    BookAbbreviation, Chapter, Verse
                             FROM wsf_shiny.scripturereferences"
 scripture.references.df = dbGetQuery(wsf.shiny.con,
-                                     scripture.references.sql) %>%
+                                     paste(scripture.references.sql,
+                                           filter.sql)) %>%
   dplyr::select(scripture.reference.id = ScriptureReferenceID, book.id = BookID,
                 book.name = BookName, book.abbreviation = BookAbbreviation,
                 chapter = Chapter, verse = Verse)
@@ -90,14 +97,15 @@ song.instances.scripture.references.sql = "SELECT SongInstanceID, SongID,
                                                   ScriptureReferenceID
                                            FROM wsf_shiny.songinstances_scripturereferences"
 song.instances.scripture.references.df = dbGetQuery(wsf.shiny.con,
-                                                    song.instances.scripture.references.sql) %>%
+                                                    paste(song.instances.scripture.references.sql,
+                                                          filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 scripture.reference.id = ScriptureReferenceID)
 
 # Get table of languages
 languages.sql = "SELECT LanguageID, LanguageName
                  FROM wsf_shiny.languages"
-languages.df = dbGetQuery(wsf.shiny.con, languages.sql) %>%
+languages.df = dbGetQuery(wsf.shiny.con, paste(languages.sql, filter.sql)) %>%
   dplyr::select(language.id = LanguageID, language.name = LanguageName)
 Encoding(languages.df$language.name) = "UTF-8"
 
@@ -105,18 +113,18 @@ Encoding(languages.df$language.name) = "UTF-8"
 song.instances.languages.sql = "SELECT SongInstanceID, SongID, LanguageID
                                 FROM wsf_shiny.songinstances_languages"
 song.instances.languages.df = dbGetQuery(wsf.shiny.con,
-                                         song.instances.languages.sql) %>%
+                                         paste(song.instances.languages.sql,
+                                               filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 language.id = LanguageID)
 
 # Get table of songbooks
-songbooks.sql = "SELECT SongbookID, SongbookName, SongbookAbbreviation,
-                        IncludeInSearch
+songbooks.sql = "SELECT SongbookID, SongbookName, SongbookAbbreviation
                  FROM wsf_shiny.songbooks"
-songbooks.df = dbGetQuery(wsf.shiny.con, songbooks.sql) %>%
-  mutate(include.in.search = IncludeInSearch == "Y") %>%
+songbooks.df = dbGetQuery(wsf.shiny.con,
+                          paste(songbooks.sql, filter.sql)) %>%
   dplyr::select(songbook.id = SongbookID, songbook.name = SongbookName,
-                songbook.abbreviation = SongbookAbbreviation, include.in.search)
+                songbook.abbreviation = SongbookAbbreviation)
 Encoding(songbooks.df$songbook.name) = "UTF-8"
 Encoding(songbooks.df$songbook.abbreviation) = "UTF-8"
 
@@ -124,61 +132,30 @@ Encoding(songbooks.df$songbook.abbreviation) = "UTF-8"
 song.instances.songbooks.sql = "SELECT SongInstanceID, SongID, SongbookID,
                                        SongbookName, SongbookAbbreviation,
                                        IncludeInSearch, SongbookVolumeID,
-                                       SongbookVolume, EntryNumber
+                                       SongbookVolume, EntryNumber,
+                                       EntryStringNoName, EntryString
                                 FROM wsf_shiny.songinstances_songbooks"
 song.instances.songbooks.df = dbGetQuery(wsf.shiny.con,
-                                         song.instances.songbooks.sql) %>%
-  filter(SongbookID != 20 | !is.na(SongbookVolume)) %>%
-  mutate(include.in.search = IncludeInSearch == "Y",
-         entry.string.no.name = paste(case_when(is.na(SongbookVolume) ~ "",
-                                                SongbookID %in% c(0, 6) ~ "",
-                                                T ~ paste("(",
-                                                          SongbookVolume,
-                                                          ")",
-                                                          sep = "")),
-                                      case_when(SongbookID == 12 ~ "",
-                                                is.na(EntryNumber) ~ "",
-                                                EntryNumber == "" ~ "",
-                                                T ~ paste(" ", EntryNumber,
-                                                          sep = "")),
-                                      sep = ""),
-         entry.string = paste(SongbookName,
-                              case_when(is.na(SongbookVolume) ~ "",
-                                        SongbookID %in% c(0, 6) ~ "",
-                                        T ~ " "),
-                              entry.string.no.name,
-                              sep = ""),
-         entry.string.no.name = ifelse(SongbookID == 12,
-                                       paste(entry.string.no.name,
-                                             EntryNumber,
-                                             sep = " "),
-                                       entry.string.no.name)) %>%
+                                         paste(song.instances.songbooks.sql,
+                                               filter.sql,
+                                               " AND (SongbookID <> 20
+                                               OR SongbookVolume IS NOT NULL)")) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 songbook.id = SongbookID, songbook.name = SongbookName,
-                songbook.abbreviation = SongbookAbbreviation, include.in.search,
-                entry.number = EntryNumber, entry.string.no.name, entry.string)
+                songbook.abbreviation = SongbookAbbreviation,
+                entry.number = EntryNumber,
+                entry.string.no.name = EntryStringNoName,
+                entry.string = EntryString)
 Encoding(song.instances.songbooks.df$songbook.name) = "UTF-8"
 Encoding(song.instances.songbooks.df$songbook.abbreviation) = "UTF-8"
-
-# Get table of songbook overlap
-songbook.overlap.sql = "SELECT SongbookID1, SongbookName1, IncludeInSearch1,
-                               SongbookID2, SongbookName2, IncludeInSearch2,
-                               SongID
-                        FROM wsf_shiny.songbook_overlap"
-songbook.overlap.df = dbGetQuery(wsf.shiny.con, songbook.overlap.sql) %>%
-  mutate(include.in.search.1 = IncludeInSearch1 == "Y",
-         include.in.search.2 = IncludeInSearch2 == "Y") %>%
-  dplyr::select(songbook.id.1 = SongbookID1, songbook.name.1 = SongbookName1,
-                include.in.search.1, songbook.id.2 = SongbookID2,
-                songbook.name.2 = SongbookName2, include.in.search.2,
-                song.id = SongID)
-Encoding(songbook.overlap.df$songbook.name.1) = "UTF-8"
-Encoding(songbook.overlap.df$songbook.name.2) = "UTF-8"
+Encoding(song.instances.songbooks.df$entry.string.no.name) = "UTF-8"
+Encoding(song.instances.songbooks.df$entry.string) = "UTF-8"
 
 # Get table of arrangement types
 arrangement.types.sql = "SELECT ArrangementTypeID, ArrangementType
                          FROM wsf_shiny.arrangementtypes"
-arrangement.types.df = dbGetQuery(wsf.shiny.con, arrangement.types.sql) %>%
+arrangement.types.df = dbGetQuery(wsf.shiny.con,
+                                  paste(arrangement.types.sql, filter.sql)) %>%
   dplyr::select(arrangement.type.id = ArrangementTypeID,
                 arrangement.type = ArrangementType)
 Encoding(arrangement.types.df$arrangement.type) = "UTF-8"
@@ -188,28 +165,22 @@ song.instances.arrangement.types.sql = "SELECT SongInstanceID, SongID,
                                                ArrangementTypeID
                                         FROM wsf_shiny.songinstances_arrangementtypes"
 song.instances.arrangement.types.df = dbGetQuery(wsf.shiny.con,
-                                                 song.instances.arrangement.types.sql) %>%
+                                                 paste(song.instances.arrangement.types.sql,
+                                                       filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 arrangement.type.id = ArrangementTypeID)
 
 # Get table of key signatures
 key.signatures.sql = "SELECT KeySignatureID, PitchName, AccidentalID,
-                             AccidentalSymbol, ModeID, ModeName
-                      FROM wsf_shiny.keysignatures"
-key.signatures.df = dbGetQuery(wsf.shiny.con, key.signatures.sql) %>%
-  mutate(key.signature.string = paste(PitchName,
-                                      ifelse(AccidentalID == 3, "",
-                                             AccidentalSymbol),
-                                      case_when(ModeID == 1 ~ "",
-                                                ModeID == 2 ~ "m",
-                                                T ~ paste(" ",
-                                                          ModeName,
-                                                          sep = "")),
-                                      sep = "")) %>%
+AccidentalSymbol, ModeID, ModeName,
+KeySignatureString
+FROM wsf_shiny.keysignatures"
+key.signatures.df = dbGetQuery(wsf.shiny.con,
+                               paste(key.signatures.sql, filter.sql)) %>%
   dplyr::select(key.signature.id = KeySignatureID, pitch.name = PitchName,
                 accidental.id = AccidentalID,
                 accidental.symbol = AccidentalSymbol, mode.id = ModeID,
-                mode.name = ModeName, key.signature.string)
+                mode.name = ModeName, key.signature.string = KeySignatureString)
 Encoding(key.signatures.df$pitch.name) = "UTF-8"
 Encoding(key.signatures.df$accidental.symbol) = "UTF-8"
 Encoding(key.signatures.df$mode.name) = "UTF-8"
@@ -217,64 +188,106 @@ Encoding(key.signatures.df$key.signature.string) = "UTF-8"
 
 # Get table that connects song instances and key signatures
 song.instances.key.signatures.sql = "SELECT SongInstanceID, SongID,
-                                            KeySignatureID
-                                     FROM wsf_shiny.songinstances_keysignatures"
+KeySignatureID
+FROM wsf_shiny.songinstances_keysignatures"
 song.instances.key.signatures.df = dbGetQuery(wsf.shiny.con,
-                                              song.instances.key.signatures.sql) %>%
+                                              paste(song.instances.key.signatures.sql,
+                                                    filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 key.signature.id = KeySignatureID)
 
 # Get table of time signatures
 time.signatures.sql = "SELECT TimeSignatureID, TimeSignatureBeat,
-                              TimeSignatureMeasure
+                              TimeSignatureMeasure, TimeSignatureString
                        FROM wsf_shiny.timesignatures"
-time.signatures.df = dbGetQuery(wsf.shiny.con, time.signatures.sql) %>%
-  mutate(time.signature.string = paste(TimeSignatureBeat, TimeSignatureMeasure,
-                                       sep = "/")) %>%
+time.signatures.df = dbGetQuery(wsf.shiny.con,
+                                paste(time.signatures.sql,
+                                      filter.sql)) %>%
   dplyr::select(time.signature.id = TimeSignatureID,
                 time.signature.beat = TimeSignatureBeat,
                 time.signature.measure = TimeSignatureMeasure,
-                time.signature.string)
+                time.signature.string = TimeSignatureString)
+Encoding(time.signatures.df$time.signature.string) = "UTF-8"
 
 # Get table that connects song instances and time signatures
 song.instances.time.signatures.sql = "SELECT SongInstanceID, SongID,
                                              TimeSignatureID
                                       FROM wsf_shiny.songinstances_timesignatures"
 song.instances.time.signatures.df = dbGetQuery(wsf.shiny.con,
-                                               song.instances.time.signatures.sql) %>%
+                                               paste(song.instances.time.signatures.sql,
+                                                     filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 time.signature.id = TimeSignatureID)
 
 # Get table of meters
-meters.sql = "SELECT MeterID, Meter, Multiplier
+meters.sql = "SELECT MeterID, Meter, Multiplier, MeterString
               FROM wsf_shiny.meters"
-meters.df = dbGetQuery(wsf.shiny.con, meters.sql) %>%
-  mutate(meter.string = paste(Meter, Multiplier)) %>%
+meters.df = dbGetQuery(wsf.shiny.con, paste(meters.sql, filter.sql)) %>%
   dplyr::select(meter.id = MeterID, meter = Meter, multiplier = Multiplier,
-                meter.string)
+                meter.string = MeterString)
 Encoding(meters.df$meter.string) = "UTF-8"
 
 # Get table that connects song instances and meters
 song.instances.meters.sql = "SELECT SongInstanceID, SongID, MeterID
                              FROM wsf_shiny.songinstances_meters"
 song.instances.meters.df = dbGetQuery(wsf.shiny.con,
-                                      song.instances.meters.sql) %>%
+                                      paste(song.instances.meters.sql,
+                                            filter.sql)) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 meter.id = MeterID)
 
-# Get lyrics first lines for all song instances
-lyrics.first.lines.sql = "SELECT SongInstanceID, FirstLine, RefrainFirstLine
-                          FROM wsf_shiny.lyrics_first_lines"
-lyrics.first.lines.df = dbGetQuery(wsf.shiny.con, lyrics.first.lines.sql) %>%
-  dplyr::select(song.instance.id = SongInstanceID, first.line = FirstLine,
-                refrain.first.line = RefrainFirstLine) %>%
-  pivot_longer(cols = c(first.line, refrain.first.line),
-               names_to = "source",
-               values_to = "lyrics.line") %>%
-  filter(!is.na(lyrics.line),
-         lyrics.line != "")
-Encoding(lyrics.first.lines.df$source) = "UTF-8"
-Encoding(lyrics.first.lines.df$lyrics.line) = "UTF-8"
+# Get table of full lyrics
+full.lyrics.sql = "SELECT LyricsID, FullLyrics
+FROM wsf_shiny.full_lyrics"
+full.lyrics.df = dbGetQuery(wsf.shiny.con, full.lyrics.sql) %>%
+  dplyr::select(lyrics.id = LyricsID, full.lyrics = FullLyrics)
+Encoding(full.lyrics.df$full.lyrics) = "UTF-8"
+
+#### Song info ####
+
+# Get table of songs
+songs.sql = "SELECT SongID, SongName, SongNameLower, SongNameSort, Topics
+FROM wsf_shiny.songs"
+songs.df = dbGetQuery(wsf.shiny.con,
+                      paste(songs.sql, filter.sql)) %>%
+  dplyr::select(song.id = SongID, song.name = SongName,
+                song.name.lower = SongNameLower,
+                song.name.sort = SongNameSort, topics = Topics)
+Encoding(songs.df$song.name) = "UTF-8"
+Encoding(songs.df$song.name.lower) = "UTF-8"
+Encoding(songs.df$song.name.sort) = "UTF-8"
+Encoding(songs.df$topics) = "UTF-8"
+
+# Get table of topics
+topics.sql = "SELECT TopicID, TopicName
+FROM wsf_shiny.topics"
+topics.df = dbGetQuery(wsf.shiny.con, paste(topics.sql, filter.sql)) %>%
+  dplyr::select(topic.id = TopicID, topic.name = TopicName)
+Encoding(topics.df$topic.name) = "UTF-8"
+
+# Get table that connects songs and topics
+songs.topics.sql = "SELECT SongID, TopicID
+FROM wsf_shiny.songs_topics"
+songs.topics.df = dbGetQuery(wsf.shiny.con,
+                             paste(songs.topics.sql, filter.sql)) %>%
+  dplyr::select(song.id = SongID, topic.id = TopicID)
+
+#### Songbook overlap info ####
+
+# Get table of songbook overlap
+songbook.overlap.sql = "SELECT SongbookID1, SongbookName1, SongbookID2,
+                               SongbookName2, SongID
+                        FROM wsf_shiny.songbook_overlap"
+songbook.overlap.df = dbGetQuery(wsf.shiny.con,
+                                 paste(songbook.overlap.sql,
+                                       filter.sql)) %>%
+  dplyr::select(songbook.id.1 = SongbookID1, songbook.name.1 = SongbookName1,
+                songbook.id.2 = SongbookID2, songbook.name.2 = SongbookName2,
+                song.id = SongID)
+Encoding(songbook.overlap.df$songbook.name.1) = "UTF-8"
+Encoding(songbook.overlap.df$songbook.name.2) = "UTF-8"
+
+#### Worship history info ####
 
 # Get table of worship slots
 if(version == "ctcc") {
@@ -302,31 +315,32 @@ if(version == "ctcc") {
                               format(worship.history.df$worship.history.date, "%Y") >= 2017)
 }
 
+#### Psalm song info ####
+
 # Get table of psalm songs
 psalm.songs.sql = "SELECT PsalmSongID, PsalmNumber, SongID, PsalmSongTypeID,
-                          PsalmSongType, PsalmSongTitle, PrettyScriptureList
+                          PsalmSongType, PsalmSongTitle,
+                          PrettyScriptureList, Artists
                    FROM wsf_shiny.psalmsongs"
-psalm.songs.df = dbGetQuery(wsf.shiny.con, psalm.songs.sql) %>%
-  mutate(pretty.scripture.list = gsub("^Ps [0-9]+:", "", PrettyScriptureList)) %>%
+psalm.songs.df = dbGetQuery(wsf.shiny.con,
+                            paste(psalm.songs.sql, filter.sql)) %>%
   dplyr::select(psalm.song.id = PsalmSongID, psalm.number = PsalmNumber,
                 song.id = SongID, psalm.song.type.id = PsalmSongTypeID,
                 psalm.song.type = PsalmSongType,
-                psalm.song.title = PsalmSongTitle, pretty.scripture.list)
+                psalm.song.title = PsalmSongTitle,
+                pretty.scripture.list = PrettyScriptureList, artists = Artists)
 Encoding(psalm.songs.df$psalm.song.type) = "UTF-8"
 Encoding(psalm.songs.df$psalm.song.title) = "UTF-8"
-
-# Get table of full lyrics
-full.lyrics.sql = "SELECT LyricsID, FullLyrics
-                   FROM wsf_shiny.full_lyrics"
-full.lyrics.df = dbGetQuery(wsf.shiny.con, full.lyrics.sql) %>%
-  dplyr::select(lyrics.id = LyricsID, full.lyrics = FullLyrics)
-Encoding(full.lyrics.df$full.lyrics) = "UTF-8"
+Encoding(psalm.songs.df$pretty.scripture.list) = "UTF-8"
+Encoding(psalm.songs.df$artists) = "UTF-8"
 
 # Get table that connecs psalm songs and lyrics
 psalm.songs.lyrics.sql = "SELECT PsalmSongID, LyricsID, FirstLine, LanguageID,
                                  PublicDomain, LyricsOrder
                           FROM wsf_shiny.psalmsongs_lyrics"
-psalm.songs.lyrics.df = dbGetQuery(wsf.shiny.con, psalm.songs.lyrics.sql) %>%
+psalm.songs.lyrics.df = dbGetQuery(wsf.shiny.con,
+                                   paste(psalm.songs.lyrics.sql,
+                                         filter.sql)) %>%
   dplyr::select(psalm.song.id = PsalmSongID, lyrics.id = LyricsID,
                 first.line = FirstLine, language.id = LanguageID,
                 public.domain = PublicDomain, lyrics.order = LyricsOrder)
@@ -343,7 +357,9 @@ Encoding(psalm.song.types.df$psalm.song.type) = "UTF-8"
 # Get table of alternative tunes
 alternative.tunes.sql = "SELECT PsalmSongID, TuneID, TuneDisplayName, Notes
                          FROM wsf_shiny.psalmsongs_alternativetunes"
-alternative.tunes.df = dbGetQuery(wsf.shiny.con, alternative.tunes.sql) %>%
+alternative.tunes.df = dbGetQuery(wsf.shiny.con,
+                                  paste(alternative.tunes.sql,
+                                        filter.sql)) %>%
   dplyr::select(psalm.song.id = PsalmSongID, tune.id = TuneID,
                 tune.display.name = TuneDisplayName, notes = Notes)
 Encoding(alternative.tunes.df$tune.display.name) = "UTF-8"
@@ -356,242 +372,23 @@ tunes.canonical.songs.df = dbGetQuery(wsf.shiny.con,
                                       tunes.canonical.songs.sql) %>%
   dplyr::select(tune.id = TuneID, song.id = SongID)
 
-#### Remove songbooks we don't want to show ####
-
-if(version == "general") {
-  # Songbooks
-  songbooks.df = songbooks.df %>%
-    filter(include.in.search)
-  # Songbook entries
-  song.instances.songbooks.df = song.instances.songbooks.df %>%
-    filter(include.in.search)
-  # Songbook overlap
-  songbook.overlap.df = songbook.overlap.df %>%
-    filter(include.in.search.1, include.in.search.2)
-  # Song instances
-  song.instances.df = song.instances.df %>%
-    semi_join(song.instances.songbooks.df %>%
-                dplyr::select(song.instance.id) %>%
-                distinct(),
-              by = "song.instance.id")
-  # Songs
-  songs.df = songs.df %>%
-    semi_join(song.instances.df %>%
-                dplyr::select(song.id) %>%
-                distinct(),
-              by = "song.id")
-  # Artists
-  artists.df = artists.df %>%
-    semi_join(song.instances.artists.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "artist.id")
-  # Topics
-  topics.df = topics.df %>%
-    semi_join(songs.topics.df %>%
-                semi_join(songs.df, by = "song.id"),
-              by = "topic.id")
-  # Scripture references
-  scripture.references.df = scripture.references.df %>%
-    semi_join(song.instances.scripture.references.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "scripture.reference.id")
-  # Languages
-  languages.df = languages.df %>%
-    semi_join(song.instances.languages.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "language.id")
-  # Arrangement types
-  arrangement.types.df = arrangement.types.df %>%
-    semi_join(song.instances.arrangement.types.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "arrangement.type.id")
-  # Key signatures
-  key.signatures.df = key.signatures.df %>%
-    semi_join(song.instances.key.signatures.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "key.signature.id")
-  # Time signatures
-  time.signatures.df = time.signatures.df %>%
-    semi_join(song.instances.time.signatures.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "time.signature.id")
-  # Meters
-  meters.df = meters.df %>%
-    semi_join(song.instances.meters.df %>%
-                semi_join(song.instances.df, by = "song.instance.id"),
-              by = "meter.id")
-  # Psalm songs
-  psalm.songs.df = psalm.songs.df %>%
-    filter(song.id %in% song.instances.df$song.id ||
-             grepl("^MP", psalm.song.id))
-}
-
 #### Collect song info into pretty formats ####
-
-# Function that turns a list of integers into a string with ranges.
-ints.to.range = function(ints) {
-  if(length(ints) == 0) {
-    return("")
-  }
-  s = sort(ints)
-  r = ""
-  in.range = F
-  for(i in 1:length(s)) {
-    if(i == 1) {
-      r = as.character(s[i])
-    } else if(s[i] == s[i - 1] + 1) {
-      if(!in.range) {
-        r = paste(r, "-", sep = "")
-      }
-      in.range = T
-      if(i == length(s)) {
-        r = paste(r, s[i], sep = "")
-      } else if(s[i] != s[i + 1] - 1) {
-        r = paste(r, s[i], sep = "")
-      }
-    } else {
-      in.range = F
-      r = paste(r, s[i], sep = ", ")
-    }
-  }
-  return(r)
-}
 
 # Get info for all song instances
 song.instance.info.df = song.instances.df %>%
-  left_join(song.instances.songbooks.df %>%
-              group_by(song.instance.id) %>%
-              arrange(songbook.name, entry.number) %>%
-              summarise(songbook.entries = paste(entry.string,
-                                                 collapse = ", ")) %>%
-              ungroup() %>%
-              mutate(songbook.entries = na_if(songbook.entries, "NA")),
-            by = c("song.instance.id")) %>%
-  left_join(song.instances.arrangement.types.df %>%
-              inner_join(arrangement.types.df, by = "arrangement.type.id") %>%
-              group_by(song.instance.id) %>%
-              arrange(arrangement.type) %>%
-              summarise(arrangement.types = paste(arrangement.type,
-                                                  collapse = ", ")),
-            by = "song.instance.id") %>%
-  left_join(song.instances.key.signatures.df %>%
-              inner_join(key.signatures.df, by = "key.signature.id") %>%
-              group_by(song.instance.id) %>%
-              arrange(pitch.name, accidental.id, mode.id) %>%
-              summarise(key.signatures = paste(key.signature.string,
-                                               collapse = ", ")),
-            by = "song.instance.id") %>%
-  left_join(song.instances.time.signatures.df %>%
-              inner_join(time.signatures.df, by = "time.signature.id") %>%
-              group_by(song.instance.id) %>%
-              arrange(time.signature.measure, time.signature.beat) %>%
-              summarise(time.signatures = paste(time.signature.string,
-                                                collapse = ", ")),
-            by = "song.instance.id") %>%
-  left_join(song.instances.scripture.references.df %>%
-              inner_join(scripture.references.df,
-                         by = "scripture.reference.id") %>%
-              dplyr::select(song.instance.id, book.id, book.abbreviation,
-                            chapter, verse) %>%
-              distinct() %>%
-              group_by(song.instance.id, book.id, book.abbreviation, chapter) %>%
-              summarise(verse.string = ints.to.range(verse)) %>%
-              ungroup() %>%
-              mutate(chapter.string = paste(chapter, verse.string, sep = ":")) %>%
-              group_by(song.instance.id, book.id, book.abbreviation) %>%
-              summarise(chapter.string = paste(chapter.string,
-                                               collapse = ", ")) %>%
-              ungroup() %>%
-              mutate(book.string = paste(book.abbreviation, chapter.string,
-                                         sep = " ")) %>%
-              group_by(song.instance.id) %>%
-              summarise(scripture.references = paste(book.string, collapse = "; ")),
-            by = "song.instance.id") %>%
-  left_join(song.instances.artists.df %>%
-              filter(role != "lyricist") %>%
-              inner_join(artists.df, by = "artist.id") %>%
-              dplyr::select(song.instance.id, role, last.name, first.name,
-                            artist.name) %>%
-              distinct() %>%
-              group_by(song.instance.id, role) %>%
-              arrange(last.name, first.name) %>%
-              summarise(artists = paste(artist.name, collapse = ", ")) %>%
-              ungroup() %>%
-              pivot_wider(names_from = role, values_from = artists) %>%
-              dplyr::select(song.instance.id, composers = composer,
-                            arrangers = arranger),
-            by = "song.instance.id") %>%
-  left_join(song.instances.songbooks.df %>%
-              group_by(song.instance.id) %>%
-              summarise(num.entries = n()),
-            by = c("song.instance.id")) %>%
   mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
                        NA, pmax(last.lyrics.year, last.tune.year)),
          decade = floor(year / 10) * 10) %>%
   arrange(desc(num.entries)) %>%
-  dplyr::select(song.id, song.instance.id, title = song.instance, year, decade,
+  dplyr::select(song.id, song.instance.id, title = song.instance,
+                title.lower = song.instance.lower, year, decade,
                 songbook.entries, arrangement.types, key.signatures,
-                time.signatures, scripture.references, composers, arrangers,
-                lyrics.copyright, tune.copyright, arrangement.copyright,
-                num.entries)
-
-# Add translators and alterers to lyrics artists
-song.instances.lyrics.sql = "SELECT SongInstanceID, LyricsID
-                             FROM songinstances_lyrics"
-song.instances.lyrics.df = dbGetQuery(wsf.shiny.con,
-                                      song.instances.lyrics.sql) %>%
-  dplyr::select(song.instance.id = SongInstanceID, lyrics.id = LyricsID)
-lyrics.translations.sql = "SELECT LyricsID, TranslatedFromID, Type
-                           FROM lyrics_translations"
-lyrics.translations.df = dbGetQuery(wsf.shiny.con, lyrics.translations.sql) %>%
-  dplyr::select(lyrics.id = LyricsID, translated.from.id = TranslatedFromID,
-                type = Type)
-lyrics.artists.sql = "SELECT LyricsID, ArtistID
-                      FROM lyrics_artists"
-lyrics.artists.df = dbGetQuery(wsf.shiny.con, lyrics.artists.sql) %>%
-  dplyr::select(lyrics.id = LyricsID, artist.id = ArtistID) %>%
-  left_join(artists.df, by = "artist.id") %>%
-  group_by(lyrics.id) %>%
-  arrange(last.name, first.name) %>%
-  summarise(artist.string = paste(artist.name, collapse = ", ")) %>%
-  ungroup() %>%
-  mutate(artist.string = ifelse(artist.string == "NA", NA, artist.string)) %>%
-  left_join(lyrics.translations.df, by = "lyrics.id")
-while(sum(!is.na(lyrics.artists.df$translated.from.id)) > 0) {
-  lyrics.artists.df = lyrics.artists.df %>%
-    left_join(lyrics.artists.df %>%
-                dplyr::select(lyrics.id, new.source.id = translated.from.id,
-                              new.type = type,
-                              source.artist.string = artist.string),
-              by = c("translated.from.id" = "lyrics.id")) %>%
-    mutate(artist.string = case_when(is.na(source.artist.string) ~ artist.string,
-                                     is.na(artist.string) ~ source.artist.string,
-                                     artist.string == source.artist.string ~ artist.string,
-                                     T ~ paste(source.artist.string,
-                                               ", ",
-                                               type,
-                                               ". ",
-                                               artist.string,
-                                               sep = ""))) %>%
-    dplyr::select(lyrics.id, artist.string, translated.from.id = new.source.id,
-                  type = new.type)
-}
-song.instance.info.df = song.instance.info.df %>%
-  left_join(song.instances.lyrics.df %>%
-              inner_join(lyrics.artists.df, by = "lyrics.id") %>%
-              group_by(song.instance.id) %>%
-              summarize(lyricists = paste(artist.string, collapse = "; ")),
-            by = "song.instance.id")
+                time.signatures, scripture.references, lyricists, composers,
+                arrangers, lyrics.copyright, tune.copyright,
+                arrangement.copyright, num.entries)
 
 # Get info for all songs
 song.info.df = songs.df %>%
-  left_join(songs.topics.df %>%
-              inner_join(topics.df, by = c("topic.id")) %>%
-              group_by(song.id) %>%
-              arrange(topic.name) %>%
-              summarise(topics = paste(topic.name, collapse = ", ")) %>%
-              ungroup(),
-            by = c("song.id")) %>%
   left_join(song.instances.df %>%
               group_by(song.id) %>%
               summarise(last.lyrics.year = max(last.lyrics.year),
@@ -608,8 +405,8 @@ song.info.df = songs.df %>%
   mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
                        NA, pmax(last.lyrics.year, last.tune.year)),
          decade = floor(year / 10) * 10) %>%
-  dplyr::select(song.id, title = song.name, topics, year, decade,
-                songbook.entries)
+  dplyr::select(song.id, title = song.name, title.lower = song.name.lower,
+                topics, year, decade, songbook.entries)
 
 # Create nodes and edges for songbook overlap graph
 songbook.group.colors = brewer.pal(5, "Set3")[c(5, 3, 1, 2, 4)]

@@ -1,39 +1,79 @@
 USE wsf_shiny;
 
--- Table of songs
-DROP TABLE IF EXISTS wsf_shiny.songs;
-CREATE TABLE wsf_shiny.songs AS
-(SELECT songs.SongID,
-        SongName,
-        CASE WHEN copyrighted_songs.SongID IS NULL THEN 'N'
-             ELSE 'Y'
-        END AS Copyrighted
- FROM wsf.songs
-      LEFT JOIN (SELECT DISTINCT songinstances.SongID
-                 FROM wsf.songinstances
-                      INNER JOIN wsf.songinstances_lyrics
-                      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-                      INNER JOIN wsf.lyrics_copyrightholders
-                      ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
-                 WHERE lyrics_copyrightholders.CopyrightHolderID <> 1) copyrighted_songs
-      ON songs.SongID = copyrighted_songs.SongID);
+-- SONGBOOK ENTRY DATA --
+
+-- Table of songbooks
+DROP TABLE IF EXISTS wsf_shiny.songbooks;
+CREATE TABLE wsf_shiny.songbooks AS
+(SELECT SongbookID,
+        SongbookName,
+        SongbookAbbreviation,
+        IncludeInSearch
+ FROM wsf.songbooks);
+COMMIT;
+
+-- SONG INSTANCE DATA --
+
+-- Table that conects song instances and songbooks
+DROP TABLE IF EXISTS wsf_shiny.songinstances_songbooks;
+CREATE TABLE wsf_shiny.songinstances_songbooks AS
+(SELECT SongInstanceID, SongID, SongbookID, SongbookName,
+        SongbookAbbreviation, IncludeInSearch, SongbookVolumeID,
+        SongbookVolume, EntryNumber,
+        CONCAT(SongbookName,
+               CASE WHEN SongbookVolume IS NULL THEN ''
+                    WHEN SongbookID IN (0, 6) THEN ''
+                    ELSE ' '
+               END,
+               EntryStringNoName) AS EntryString,
+        CASE WHEN SongbookID = 12
+                  THEN CONCAT(EntryStringNoName, EntryNumber)
+             ELSE EntryStringNoName
+        END AS EntryStringNoName
+ FROM (SELECT songinstances.SongInstanceID, SongID,
+              songbooks.SongbookID, SongbookName,
+              SongbookAbbreviation, IncludeInSearch,
+              songbookvolumes.SongbookVolumeID,
+              SongbookVolume, EntryNumber,
+              CONCAT(CASE WHEN SongbookVolume IS NULL THEN ''
+                          WHEN songbooks.SongbookID IN (0, 6) THEN ''
+                          ELSE CONCAT('(', SongbookVolume, ')')
+                     END,
+                     CASE WHEN songbooks.SongbookID = 12 THEN ''
+                          WHEN EntryNumber IS NULL THEN ''
+                          WHEN EntryNumber = '' THEN ''
+                          ELSE CONCAT(' ', EntryNumber)
+                     END) AS EntryStringNoName
+       FROM wsf.songinstances
+            JOIN wsf.songbookentries
+            ON songinstances.SongInstanceID = songbookentries.SongInstanceID
+            JOIN wsf.songbooks
+            ON songbookentries.SongbookID = songbooks.SongbookID
+            LEFT JOIN wsf.songbookvolumes
+            ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID) s);
 COMMIT;
 
 -- Table of song instances
 DROP TABLE IF EXISTS wsf_shiny.songinstances;
 CREATE TABLE wsf_shiny.songinstances AS
 (SELECT songinstances.SongInstanceID,
-        SongInstance, songinstances.ArrangementID,
+        SongInstance, LOWER(SongInstance) AS SongInstanceLower,
+        songinstances.ArrangementID,
         SongID,
         LastLyricsYear,
         LyricsCopyright,
         LastTuneYear,
         TuneCopyright,
-        ArrangementCopyright
+        ArrangementCopyright,
+        ArrangementTypes,
+        SongbookEntries,
+        NumEntries,
+        PrettyScriptureList AS ScriptureReferences,
+        COALESCE(IncludeInSearch, 'N') AS IncludeInSearch
  FROM wsf.songinstances 
       LEFT JOIN (SELECT SongInstanceID,
                         MAX(CopyrightYear) AS LastLyricsYear,
-                        GROUP_CONCAT(CONCAT('(C) ', CopyrightYear, ' ', CopyrightHolderNames)
+                        GROUP_CONCAT(CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS LyricsCopyright
                  FROM wsf.songinstances_lyrics
@@ -56,7 +96,7 @@ CREATE TABLE wsf_shiny.songinstances AS
       ON songinstances.SongInstanceID = lyrics.SongInstanceID
       LEFT JOIN (SELECT SongInstanceID,
                         MAX(CopyrightYear) AS LastTuneYear,
-                        GROUP_CONCAT(CONCAT('(C) ', CopyrightYear, ' ', CopyrightHolderNames)
+                        GROUP_CONCAT(CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS TuneCopyright
                  FROM wsf.songinstances_tunes
@@ -77,10 +117,13 @@ CREATE TABLE wsf_shiny.songinstances AS
                            ON songinstances_tunes.TuneID = tunes.TuneID
                  GROUP BY SongInstanceID) tunes
       ON songinstances.SongInstanceID = tunes.SongInstanceID
-      LEFT JOIN (SELECT ArrangementID,
-                        GROUP_CONCAT(CONCAT('(C) ', CopyrightYear, ' ', CopyrightHolderNames)
+      LEFT JOIN (SELECT a.ArrangementID,
+                        GROUP_CONCAT(CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
-                                     SEPARATOR '; ') AS ArrangementCopyright
+                                     SEPARATOR '; ') AS ArrangementCopyright,
+                        GROUP_CONCAT(ArrangementType
+                                     ORDER BY ArrangementType
+                                     SEPARATOR ', ') AS ArrangementTypes
                  FROM (SELECT arrangements.ArrangementID,
                               CopyrightYear,
                               GROUP_CONCAT(CASE WHEN copyrightholders.CopyrightHolderID <> 1
@@ -95,16 +138,39 @@ CREATE TABLE wsf_shiny.songinstances AS
                                  ON arrangements_copyrightholders.CopyrightHolderID = copyrightholders.CopyrightHolderID
                        GROUP BY arrangements.ArrangementID,
                                 CopyrightYear) a
-                 GROUP BY ArrangementID) arrangements
-      ON songinstances.ArrangementID = arrangements.ArrangementID);
+                      LEFT JOIN wsf.arrangements_arrangementtypes
+                      ON a.ArrangementId = arrangements_arrangementtypes.ArrangementID
+                      LEFT JOIN wsf.arrangementtypes
+                      ON arrangements_arrangementtypes.ArrangementTypeID = arrangementtypes.ArrangementTypeID
+                 GROUP BY a.ArrangementID) arrangements
+      ON songinstances.ArrangementID = arrangements.ArrangementID
+      LEFT JOIN (SELECT SongInstanceID,
+                        GROUP_CONCAT(DISTINCT EntryString
+                                     ORDER BY SongbookName, EntryNumber
+                                     SEPARATOR ', ') AS SongbookEntries,
+                        COUNT(*) AS NumEntries
+                 FROM wsf_shiny.songinstances_songbooks
+                 GROUP BY SongInstanceID) songbook_entries
+      ON songinstances.SongInstanceID = songbook_entries.SongInstanceID
+      LEFT JOIN (SELECT SongInstanceID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_songbooks
+                 GROUP BY SongInstanceID) include_songinstance
+      ON songinstances.SongInstanceID = include_songinstance.SongInstanceID
+      LEFT JOIN wsf.prettyscripturelists
+      ON songinstances.SongInstanceID = prettyscripturelists.SongInstanceID);
 COMMIT;
 
 -- Table of artists
 DROP TABLE IF EXISTS wsf_shiny.artists;
 CREATE TABLE wsf_shiny.artists AS
-(SELECT ArtistID,
+(SELECT artists.ArtistID,
         LastName,
         FirstName,
+        CONCAT(CASE WHEN FirstName IS NULL THEN ''
+                    ELSE CONCAT(FirstName, ' ')
+               END,
+               LastName) AS ArtistName,
         GenderName
  FROM wsf.artists
       LEFT JOIN wsf.genders
@@ -113,45 +179,140 @@ COMMIT;
 
 -- Table that connects song instances and artists
 DROP TABLE IF EXISTS wsf_shiny.songinstances_artists;
-CREATE TABLE wsf_shiny.songinstances_artists AS
-(SELECT DISTINCT songinstances.SongInstanceID,
-        SongID, ArtistID,
-        'lyricist' AS Role
- FROM wsf.songinstances
+CREATE TABLE wsf_shiny.songinstances_artists
+(SongInstanceID int,
+ SongID int,
+ ArtistID int,
+ Role varchar(50),
+ IncludeInSearch varchar(1));
+INSERT INTO wsf_shiny.songinstances_artists
+(SELECT DISTINCT songinstances.SongInstanceID, SongID, ArtistID,
+        'lyricist' AS Role, IncludeInSearch
+ FROM wsf_shiny.songinstances
       JOIN wsf.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
       JOIN wsf.lyrics_artists
-      ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID
- UNION ALL
- SELECT DISTINCT songinstances.SongInstanceID,
-        SongID, ArtistID,
-        'composer' AS Role
- FROM wsf.songinstances
+      ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID);
+INSERT INTO wsf_shiny.songinstances_artists
+(SELECT DISTINCT songinstances.SongInstanceID, SongID, ArtistID,
+        'composer' AS Role, IncludeInSearch
+ FROM wsf_shiny.songinstances
       JOIN wsf.songinstances_tunes
       ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
       JOIN wsf.tunes_artists
-      ON songinstances_tunes.TuneID = tunes_artists.TuneID
- UNION ALL
- SELECT DISTINCT songinstances.SongInstanceID,
-        SongID, ArtistID, 'arranger' AS Role
- FROM wsf.songinstances
+      ON songinstances_tunes.TuneID = tunes_artists.TuneID);
+INSERT INTO wsf_shiny.songinstances_artists
+(SELECT DISTINCT songinstances.SongInstanceID, SongID, ArtistID,
+        'arranger' AS Role, IncludeInSearch
+ FROM wsf_shiny.songinstances
       JOIN wsf.arrangements_artists
       ON songinstances.ArrangementID = arrangements_artists.ArrangementID);
 COMMIT;
 
--- Table of topics
-DROP TABLE IF EXISTS wsf_shiny.topics;
-CREATE TABLE wsf_shiny.topics AS
-(SELECT TopicID,
-        TopicName
- FROM wsf.topics);
+-- For each set of lyrics, construct a pretty artist string
+-- Also, add lyricists to table of song instances and artists
+DROP PROCEDURE IF EXISTS getTranslators;
+DELIMITER $
+CREATE PROCEDURE getTranslators()
+BEGIN
+    
+    DECLARE numTranslations int;
+    
+    DROP TABLE IF EXISTS wsf_shiny.lyrics_artists;
+    CREATE TABLE wsf_shiny.lyrics_artists AS
+    (SELECT lyrics_artists.LyricsID,
+        	GROUP_CONCAT(DISTINCT artists.ArtistName
+       	                 ORDER BY artists.LastName, artists.FirstName
+       	                 SEPARATOR ', ') AS OriginalPrettyArtistString,
+        	GROUP_CONCAT(DISTINCT artists.ArtistName
+       	                 ORDER BY artists.LastName, artists.FirstName
+       	                 SEPARATOR ', ') AS PrettyArtistString,
+            TranslatedFromID
+     FROM wsf.lyrics_artists
+          INNER JOIN wsf_shiny.artists
+          ON lyrics_artists.ArtistID = artists.ArtistID
+          LEFT JOIN wsf.lyrics_translations
+          ON lyrics_artists.LyricsID = lyrics_translations.LyricsID
+     GROUP BY lyrics_artists.LyricsID);
+     
+     SELECT COUNT(*)
+     INTO numTranslations
+     FROM wsf_shiny.lyrics_artists
+     WHERE TranslatedFromID IS NOT NULL;
+     
+     WHILE numTranslations > 0 DO
+         
+         INSERT INTO wsf_shiny.songinstances_artists
+         (SELECT DISTINCT songinstances.SongInstanceID, SongID,
+                 la.ArtistID, 'lyricist' AS Role, IncludeInSearch
+          FROM wsf_shiny.songinstances
+               INNER JOIN wsf.songinstances_lyrics
+               ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+               INNER JOIN wsf_shiny.lyrics_artists
+               ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID
+               INNER JOIN wsf_shiny.lyrics_artists translations
+               ON lyrics_artists.TranslatedFromID = translations.LyricsID
+               INNER JOIN wsf.lyrics_artists la
+               ON translations.LyricsID = la.LyricsID);
+         
+         UPDATE wsf_shiny.lyrics_artists
+                LEFT JOIN wsf.lyrics l1
+                ON lyrics_artists.LyricsID = l1.LyricsID
+                LEFT JOIN wsf_shiny.lyrics_artists la2
+                ON lyrics_artists.TranslatedFromID = la2.LyricsID
+                LEFT JOIN wsf.lyrics l2
+                ON la2.LyricsID = l2.LyricsID
+         SET lyrics_artists.PrettyArtistString = CONCAT(la2.OriginalPrettyArtistString,
+                                                        CASE WHEN l1.LanguageID = l2.LanguageID
+                                                                  THEN ', alt. '
+                                                             ELSE ', tr. '
+                                                        END,
+                                                        lyrics_artists.PrettyArtistString),
+             lyrics_artists.TranslatedFromID = la2.TranslatedFromID
+         WHERE lyrics_artists.TranslatedFromID IS NOT NULL;
+         
+         SELECT COUNT(*)
+         INTO numTranslations
+         FROM wsf_shiny.lyrics_artists
+         WHERE TranslatedFromID IS NOT NULL;
+         
+     END WHILE;
+     
+     ALTER TABLE wsf_shiny.lyrics_artists
+     DROP OriginalPrettyArtistString,
+     DROP TranslatedFromID;
+     
+END$
+DELIMITER ;
+SET SQL_SAFE_UPDATES = 0;
+CALL getTranslators();
+SET SQL_SAFE_UPDATES = 1;
 COMMIT;
 
--- Table that connects songs and topics
-DROP TABLE IF EXISTS wsf_shiny.songs_topics;
-CREATE TABLE wsf_shiny.songs_topics AS
-(SELECT SongID, TopicID
- FROM wsf.songs_topics);
+-- Update table of artists
+ALTER TABLE wsf_shiny.artists
+ADD IncludeInSearch varchar(1);
+SET SQL_SAFE_UPDATES = 0;
+UPDATE wsf_shiny.artists
+       LEFT JOIN (SELECT ArtistID,
+                         MAX(IncludeInSearch) AS IncludeInSearch
+                  FROM wsf_shiny.songinstances_artists
+                  GROUP BY ArtistID) include_artist
+       ON artists.ArtistID = include_artist.ArtistID
+SET artists.IncludeInSearch = include_artist.IncludeInSearch;
+SET SQL_SAFE_UPDATES = 1;
+COMMIT;
+
+-- Table that connects song instances and scripture references
+DROP TABLE IF EXISTS wsf_shiny.songinstances_scripturereferences;
+CREATE TABLE wsf_shiny.songinstances_scripturereferences AS
+(SELECT DISTINCT songinstances.SongInstanceID, SongID,
+        ScriptureReferenceID, IncludeInSearch
+ FROM wsf_shiny.songinstances
+      JOIN wsf.songinstances_lyrics
+      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+      JOIN wsf.lyrics_scripturereferences
+      ON songinstances_lyrics.LyricsID = lyrics_scripturereferences.LyricsID);
 COMMIT;
 
 -- Table of books of the Bible
@@ -166,84 +327,431 @@ COMMIT;
 -- Table of scripture references
 DROP TABLE IF EXISTS wsf_shiny.scripturereferences;
 CREATE TABLE wsf_shiny.scripturereferences AS
-(SELECT ScriptureReferenceID,
+(SELECT scripturereferences.ScriptureReferenceID,
         booksofthebible.BookID,
         BookName,
         BookAbbreviation,
         Chapter,
-        Verse
+        Verse,
+        IncludeInSearch
  FROM wsf.scripturereferences
       JOIN wsf.booksofthebible
-      ON scripturereferences.BookID = booksofthebible.BookID);
-COMMIT;
-
--- Table that connects song instances and scripture references
-DROP TABLE IF EXISTS wsf_shiny.songinstances_scripturereferences;
-CREATE TABLE wsf_shiny.songinstances_scripturereferences AS
-(SELECT DISTINCT songinstances.SongInstanceID, SongID, ScriptureReferenceID
- FROM wsf.songinstances
-      JOIN wsf.songinstances_lyrics
-      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      JOIN wsf.lyrics_scripturereferences
-      ON songinstances_lyrics.LyricsID = lyrics_scripturereferences.LyricsID);
-COMMIT;
-
--- Table of languages
-DROP TABLE IF EXISTS wsf_shiny.languages;
-CREATE TABLE wsf_shiny.languages AS
-(SELECT LanguageID,
-        LanguageName
- FROM wsf.languages);
+      ON scripturereferences.BookID = booksofthebible.BookID
+      LEFT JOIN (SELECT ScriptureReferenceID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_scripturereferences
+                 GROUP BY ScriptureReferenceID) include_scripturereference
+      ON scripturereferences.ScriptureReferenceID = include_scripturereference.ScriptureReferenceID);
 COMMIT;
 
 -- Table that connects song instances and languages
 DROP TABLE IF EXISTS wsf_shiny.songinstances_languages;
 CREATE TABLE wsf_shiny.songinstances_languages AS
 (SELECT DISTINCT songinstances.SongInstanceID,
-        SongID, LanguageID
- FROM wsf.songinstances
+        SongID, LanguageID, IncludeInSearch
+ FROM wsf_shiny.songinstances
       JOIN wsf.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
       JOIN wsf.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID);
 COMMIT;
 
--- Table of songbooks
-DROP TABLE IF EXISTS wsf_shiny.songbooks;
-CREATE TABLE wsf_shiny.songbooks AS
-(SELECT SongbookID,
-        SongbookName,
-        SongbookAbbreviation,
+-- Table of languages
+DROP TABLE IF EXISTS wsf_shiny.languages;
+CREATE TABLE wsf_shiny.languages AS
+(SELECT languages.LanguageID,
+        LanguageName,
         IncludeInSearch
- FROM wsf.songbooks);
+ FROM wsf.languages
+      LEFT JOIN (SELECT LanguageID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_languages
+                 GROUP BY LanguageID) include_language
+      ON languages.LanguageID = include_language.LanguageID);
 COMMIT;
 
--- Table that conects song instances and songbooks
-DROP TABLE IF EXISTS wsf_shiny.songinstances_songbooks;
-CREATE TABLE wsf_shiny.songinstances_songbooks AS
+-- Table that connects song instances and arrangement types
+DROP TABLE IF EXISTS wsf_shiny.songinstances_arrangementtypes;
+CREATE TABLE wsf_shiny.songinstances_arrangementtypes AS
+(SELECT DISTINCT SongInstanceID,
+        SongID,
+        ArrangementTypeID,
+        IncludeInSearch
+ FROM wsf_shiny.songinstances
+      JOIN wsf.arrangements_arrangementtypes
+      ON songinstances.ArrangementID = arrangements_arrangementtypes.ArrangementID);
+COMMIT;
+
+-- Table of arrangement types
+DROP TABLE IF EXISTS wsf_shiny.arrangementtypes;
+CREATE TABLE wsf_shiny.arrangementtypes AS
+(SELECT arrangementtypes.ArrangementTypeID,
+        ArrangementType,
+        IncludeInSearch
+ FROM wsf.arrangementtypes
+      LEFT JOIN (SELECT ArrangementTypeID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_arrangementtypes
+                 GROUP BY ArrangementTypeID) include_arrangementtype
+      ON arrangementtypes.ArrangementTypeID = include_arrangementtype.ArrangementTypeID);
+COMMIT;
+
+-- Table that connects song instances and key signatures
+DROP TABLE IF EXISTS wsf_shiny.songinstances_keysignatures;
+CREATE TABLE wsf_shiny.songinstances_keysignatures AS
+(SELECT songinstances.SongInstanceID,
+        SongID, KeySignatureID, IncludeInSearch
+ FROM wsf_shiny.songinstances
+      JOIN wsf.songinstances_keysignatures
+      ON songinstances.SongInstanceID = songinstances_keysignatures.SongInstanceID);
+COMMIT;
+
+-- Table of key signatures
+DROP TABLE IF EXISTS wsf_shiny.keysignatures;
+CREATE TABLE wsf_shiny.keysignatures AS
+(SELECT keysignatures.KeySignatureID,
+        PitchName,
+        accidentals.AccidentalID,
+        AccidentalSymbol,
+        modes.ModeID,
+        ModeName,
+        CONCAT(PitchName,
+               CASE WHEN accidentals.AccidentalID = 3 THEN ''
+                    ELSE AccidentalSymbol
+               END,
+               CASE WHEN modes.ModeID = 1 THEN ''
+                    WHEN modes.ModeID = 2 THEN 'm'
+                    ELSE CONCAT(' ', ModeName)
+               END) AS KeySignatureString,
+        IncludeInSearch
+ FROM wsf.keysignatures
+      JOIN wsf.pitches
+      ON keysignatures.PitchID = pitches.PitchID
+      JOIN wsf.accidentals
+      ON keysignatures.AccidentalID = accidentals.AccidentalID
+      JOIN wsf.modes
+      ON keysignatures.ModeID = modes.ModeID
+      LEFT JOIN (SELECT KeySignatureID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_keysignatures
+                 GROUP BY KeySignatureID) include_keysignature
+      ON keysignatures.KeySignatureID = include_keysignature.KeySignatureID);
+COMMIT;
+
+-- Table that connects song instances and time signatures
+DROP TABLE IF EXISTS wsf_shiny.songinstances_timesignatures;
+CREATE TABLE wsf_shiny.songinstances_timesignatures AS
 (SELECT songinstances.SongInstanceID,
         SongID,
-        songbooks.SongbookID,
-        SongbookName,
-        SongbookAbbreviation,
-        IncludeInSearch,
-        songbookvolumes.SongbookVolumeID,
-        SongbookVolume,
-        EntryNumber
- FROM wsf.songinstances
-      JOIN wsf.songbookentries
-      ON songinstances.SongInstanceID = songbookentries.SongInstanceID
-      JOIN wsf.songbooks
-      ON songbookentries.SongbookID = songbooks.SongbookID
-      LEFT JOIN wsf.songbookvolumes
-      ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID);
+        TimeSignatureID,
+        IncludeInSearch
+ FROM wsf_shiny.songinstances
+      JOIN wsf.songinstances_timesignatures
+      ON songinstances.SongInstanceID = songinstances_timesignatures.SongInstanceID);
 COMMIT;
+
+-- Table of time signatures
+DROP TABLE IF EXISTS wsf_shiny.timesignatures;
+CREATE TABLE wsf_shiny.timesignatures AS
+(SELECT timesignatures.TimeSignatureID,
+        TimeSignatureBeat,
+        TimeSignatureMeasure,
+        CONCAT(TimeSignatureBeat, '/',
+               TimeSignatureMeasure) AS TimeSignatureString,
+        IncludeInSearch
+ FROM wsf.timesignatures
+      LEFT JOIN (SELECT TimeSignatureID,
+                        MAX(IncludeInSearch) IncludeInSearch
+                 FROM wsf_shiny.songinstances_timesignatures
+                 GROUP BY TimeSignatureID) include_timesignature
+      ON timesignatures.TimeSignatureID = include_timesignature.TimeSignatureID);
+COMMIT;
+
+-- Table that connects song instances and meters
+DROP TABLE IF EXISTS wsf_shiny.songinstances_meters;
+CREATE TABLE wsf_shiny.songinstances_meters AS
+(SELECT songinstances.SongInstanceID, SongID, MeterID,IncludeInSearch
+ FROM wsf_shiny.songinstances
+      JOIN wsf.songinstances_lyrics
+      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+      JOIN wsf.lyrics_meters
+      ON songinstances_lyrics.LyricsID = lyrics_meters.LyricsID
+ UNION DISTINCT
+ SELECT songinstances.SongInstanceID, SongID, MeterID, IncludeInSearch
+ FROM wsf_shiny.songinstances
+      JOIN wsf.songinstances_tunes
+      ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
+      JOIN wsf.tunes_meters
+      ON songinstances_tunes.TuneID = tunes_meters.TuneID);
+COMMIT;
+
+-- Table of meters
+DROP TABLE IF EXISTS wsf_shiny.meters;
+CREATE TABLE wsf_shiny.meters AS
+(SELECT meters.MeterID,
+        Meter,
+        Multiplier,
+        CONCAT(Meter,
+               CASE WHEN Multiplier IS NULL THEN ''
+                    ELSE CONCAT(' ', Multiplier)
+               END) AS MeterString,
+        IncludeInSearch
+ FROM wsf.meters
+      LEFT JOIN (SELECT MeterID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_meters
+                 GROUP BY MeterID) include_meter
+      ON meters.MeterID = include_meter.MeterID);
+COMMIT;
+
+-- Table of lyrics first lines for all song instances
+DROP TABLE IF EXISTS wsf_shiny.lyrics_first_lines;
+CREATE TABLE wsf_shiny.lyrics_first_lines AS
+(SELECT songinstances.SongInstanceID,
+        FirstLine,
+        1 AS FirstLineOrder,
+        lyrics.LyricsID,
+        IncludeInSearch
+ FROM wsf_shiny.songinstances
+      INNER JOIN wsf.songinstances_lyrics
+      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+      INNER JOIN wsf.lyrics
+      ON songinstances_lyrics.LyricsID = lyrics.LyricsID
+ UNION ALL
+ SELECT songinstances.SongInstanceID,
+        RefrainFirstLine AS FirstLine,
+        2 AS FirstLineOrder,
+        lyrics.LyricsID,
+        IncludeInSearch
+ FROM wsf_shiny.songinstances
+      INNER JOIN wsf.songinstances_lyrics
+      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+      INNER JOIN wsf.lyrics
+      ON songinstances_lyrics.LyricsID = lyrics.LyricsID
+ WHERE lyrics.RefrainFirstLine IS NOT NULL);
+COMMIT;
+
+-- Table of full lyrics
+DROP TABLE IF EXISTS wsf_shiny.full_lyrics;
+CREATE TABLE wsf_shiny.full_lyrics AS
+(SELECT LyricsID, FullLyrics
+ FROM wsf.all_lyrics);
+COMMIT;
+
+-- Add more song instance info
+ALTER TABLE wsf_shiny.songinstances
+ADD Lyricists varchar(1000),
+ADD Composers varchar(1000),
+ADD Arrangers varchar(1000),
+ADD KeySignatures varchar(1000),
+ADD TimeSignatures varchar(1000),
+ADD HTML blob;
+SET SQL_SAFE_UPDATES = 0;
+UPDATE wsf_shiny.songinstances
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(DISTINCT PrettyArtistString
+                                      SEPARATOR ', ') AS Lyricists
+                  FROM wsf.songinstances_lyrics
+                       INNER JOIN wsf_shiny.lyrics_artists
+                       ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID
+                  GROUP BY SongInstanceID) lyricists
+       ON songinstances.SongInstanceID = lyricists.SongInstanceID
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(DISTINCT ArtistName
+                                      ORDER BY LastName, FirstName
+                                      SEPARATOR ', ') AS Composers
+                  FROM wsf_shiny.songinstances_artists
+                       INNER JOIN wsf_shiny.artists
+                       ON songinstances_artists.ArtistID = artists.ArtistID
+                  WHERE Role = 'composer'
+                  GROUP BY SongInstanceID) composers
+       ON songinstances.SongInstanceID = composers.SongInstanceID
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(DISTINCT ArtistName
+                                      ORDER BY LastName, FirstName
+                                      SEPARATOR ', ') AS Arrangers
+                  FROM wsf_shiny.songinstances_artists
+                       INNER JOIN wsf_shiny.artists
+                       ON songinstances_artists.ArtistID = artists.ArtistID
+                  WHERE Role = 'arranger'
+                  GROUP BY SongInstanceID) arrangers
+       ON songinstances.SongInstanceID = arrangers.SongInstanceID
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(DISTINCT KeySignatureString
+                                      ORDER BY PitchName, AccidentalID, ModeID
+                                      SEPARATOR ', ') AS KeySignatures
+                  FROM wsf.songinstances_keysignatures
+                       INNER JOIN wsf_shiny.keysignatures
+                       ON songinstances_keysignatures.KeySignatureID = keysignatures.KeySignatureID
+                  GROUP BY SongInstanceID) keysignatures
+       ON songinstances.SongInstanceID = keysignatures.SongInstanceID
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(DISTINCT TimeSignatureString
+                                      ORDER BY TimeSignatureMeasure, TimeSignatureBeat
+                                      SEPARATOR ', ') AS TimeSignatures
+                  FROM wsf.songinstances_timesignatures
+                       INNER JOIN wsf_shiny.timesignatures
+                       ON songinstances_timesignatures.TimeSignatureID = timesignatures.TimeSignatureID
+                  GROUP BY SongInstanceID) timesignatures
+       ON songinstances.SongInstanceID = timesignatures.SongInstanceID
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(CONCAT('<i>', FirstLine, '</i>')
+                                      ORDER BY FirstLineOrder, LyricsID
+                                      SEPARATOR '<br/>') AS LyricsFirstLines
+                  FROM wsf_shiny.lyrics_first_lines
+                  GROUP BY SongInstanceID) firstlines
+       ON songinstances.SongInstanceID = firstlines.SongInstanceID
+SET songinstances.Lyricists = lyricists.Lyricists,
+    songinstances.Composers = composers.Composers,
+    songinstances.Arrangers = arrangers.Arrangers,
+    songinstances.KeySignatures = keysignatures.KeySignatures,
+    songinstances.TimeSignatures = timesignatures.TimeSignatures,
+    songinstances.HTML = CONCAT('<hr/> <h3>', songinstances.SongInstance, '</h3>',
+                                CASE WHEN songinstances.SongbookEntries IS NULL THEN ''
+                                     ELSE CONCAT('<p>', songinstances.SongbookEntries, '</p>')
+                                END,
+                                CASE WHEN songinstances.ArrangementTypes IS NULL THEN ''
+                                     ELSE CONCAT('<p>', songinstances.ArrangementTypes, '</p>')
+                                END,
+                                CASE WHEN keysignatures.KeySignatures IS NOT NULL
+                                          OR timesignatures.TimeSignatures IS NOT NULL
+                                          THEN CONCAT('<p>',
+                                                      COALESCE(keysignatures.KeySignatures, ''),
+                                                      CASE WHEN keysignatures.KeySignatures IS NOT NULL
+                                                                AND timesignatures.TimeSignatures IS NOT NULL
+                                                                THEN '; '
+                                                           ELSE ''
+                                                      END,
+                                                      COALESCE(timesignatures.TimeSignatures, ''),
+                                                      '</p>')
+                                     ELSE ''
+                                END,
+                                CASE WHEN songinstances.ScriptureReferences IS NULL THEN ''
+                                     ELSE CONCAT('<p>', songinstances.ScriptureReferences, '</p>')
+                                END,
+                                CASE WHEN lyricists.Lyricists = composers.Composers
+                                          THEN CONCAT('<p>Lyrics & Music:&nbsp;', lyricists.Lyricists, '</p>')
+                                     ELSE CONCAT(CASE WHEN lyricists.Lyricists IS NULL THEN ''
+                                                      ELSE CONCAT('<p>Lyrics:&nbsp;', lyricists.Lyricists, '</p>')
+                                                 END,
+                                                 CASE WHEN composers.Composers IS NULL THEN ''
+                                                      ELSE CONCAT('<p>Music:&nbsp;', composers.Composers, '</p>')
+                                                 END)
+                                END,
+                                CASE WHEN arrangers.Arrangers IS NULL THEN ''
+                                     ELSE CONCAT('<p>Arr.:&nbsp;', arrangers.Arrangers, '</p>')
+                                END,
+                                CASE WHEN songinstances.LyricsCopyright = songinstances.TuneCopyright
+                                          THEN CONCAT('<p>', songinstances.LyricsCopyright, '</p>')
+                                     ELSE CONCAT(CASE WHEN songinstances.LyricsCopyright IS NULL THEN ''
+                                                      ELSE CONCAT('<p>Lyrics ', songinstances.LyricsCopyright, '</p>')
+                                                 END,
+                                                 CASE WHEN songinstances.TuneCopyright IS NULL THEN ''
+                                                      ELSE CONCAT('<p>Tune ', songinstances.TuneCopyright, '</p>')
+                                                 END)
+                                END,
+                                CASE WHEN songinstances.ArrangementCopyright IS NULL THEN ''
+                                     ELSE CONCAT('<p>', songinstances.ArrangementCopyright, '</p>')
+                                END,
+                                CONCAT('<p>', LyricsFirstLines, '</p>'));
+SET SQL_SAFE_UPDATES = 1;
+COMMIT;
+
+-- SONG DATA --
+
+-- Table of songs
+DROP TABLE IF EXISTS wsf_shiny.songs;
+CREATE TABLE wsf_shiny.songs
+(SongID int,
+ SongName varchar(500),
+ SongNameLower varchar(500),
+ SongNameSort varchar(500),
+ Copyrighted varchar(1),
+ SongbookEntries varchar(1000),
+ IncludeInSearch varchar(1));
+INSERT INTO wsf_shiny.songs
+(SELECT songs.SongID,
+        SongName, LOWER(SongName) AS SongNameLower,
+        REGEXP_REPLACE(SongName, '^[\'\"¡¿]', '') AS SongNameSort,
+        CASE WHEN copyrighted_songs.SongID IS NULL THEN 'N'
+             ELSE 'Y'
+        END AS Copyrighted,
+        SongbookEntries,
+        COALESCE(IncludeInSearch, 'N') AS IncludeInSearch
+ FROM wsf.songs
+      LEFT JOIN (SELECT DISTINCT songinstances.SongID
+                 FROM wsf.songinstances
+                      INNER JOIN wsf.songinstances_lyrics
+                      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+                      INNER JOIN wsf.lyrics_copyrightholders
+                      ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
+                 WHERE lyrics_copyrightholders.CopyrightHolderID <> 1) copyrighted_songs
+      ON songs.SongID = copyrighted_songs.SongID
+      LEFT JOIN (SELECT SongID,
+                        GROUP_CONCAT(DISTINCT EntryString
+                                     ORDER BY SongbookName, EntryNumber
+                                     SEPARATOR ', ') AS SongbookEntries
+                 FROM wsf_shiny.songinstances_songbooks
+                 GROUP BY SongID) songbook_entries
+      ON songs.SongID = songbook_entries.SongID
+      LEFT JOIN (SELECT SongID, MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songinstances_songbooks
+                 GROUP BY SongID) include_song
+      ON songs.SongID = include_song.SongID);
+COMMIT;
+
+-- Table that connects songs and topics
+DROP TABLE IF EXISTS wsf_shiny.songs_topics;
+CREATE TABLE wsf_shiny.songs_topics AS
+(SELECT songs.SongID, TopicID, IncludeInSearch
+ FROM wsf_shiny.songs
+      INNER JOIN wsf.songs_topics
+      ON songs.SongID = songs_topics.SongID);
+COMMIT;
+
+-- Table of topics
+DROP TABLE IF EXISTS wsf_shiny.topics;
+CREATE TABLE wsf_shiny.topics AS
+(SELECT topics.TopicID,
+        TopicName,
+        IncludeInSearch
+ FROM wsf.topics
+      LEFT JOIN (SELECT TopicID,
+                        MAX(IncludeInSearch) AS IncludeInSearch
+                 FROM wsf_shiny.songs_topics
+                 GROUP BY TopicID) include_topic
+      ON topics.TopicID = include_topic.TopicID);
+COMMIT;
+
+-- Update table of songs
+ALTER TABLE wsf_shiny.songs
+ADD Topics varchar(1000);
+SET SQL_SAFE_UPDATES = 0;
+UPDATE wsf_shiny.songs
+       LEFT JOIN (SELECT SongID,
+                         GROUP_CONCAT(TopicName
+                                      ORDER BY TopicName
+                                      SEPARATOR ', ') Topics
+                  FROM wsf_shiny.songs_topics
+                       INNER JOIN wsf.topics
+                       ON songs_topics.SongID = topics.TopicID
+                  GROUP BY SongID) topics
+       ON songs.SongID = topics.SongID
+SET songs.Topics = topics.Topics;
+SET SQL_SAFE_UPDATES = 1;
+COMMIT;
+
+-- SONGBOOK OVERLAP DATA --
 
 -- Table of shared songs.
 DROP TABLE IF EXISTS wsf_shiny.songbook_overlap;
 CREATE TABLE wsf_shiny.songbook_overlap AS
-(SELECT DISTINCT SongbookID1, SongbookName1, IncludeInSearch1,
-        SongbookID2, SongbookName2, IncludeInSearch2, si1.SongID
+(SELECT DISTINCT SongbookID1, SongbookName1, SongbookID2,
+        SongbookName2, si1.SongID,
+        CASE WHEN IncludeInSearch1 = 'Y' AND IncludeInSearch2 = 'Y'
+                  THEN 'Y'
+             ELSE 'N'
+        END AS IncludeInSearch
  FROM ((SELECT SongbookID AS SongbookID1,
                SongbookName AS SongbookName1,
                IncludeInSearch AS IncludeInSearch1
@@ -253,121 +761,16 @@ CREATE TABLE wsf_shiny.songbook_overlap AS
                           IncludeInSearch AS IncludeInSearch2
                    FROM wsf.songbooks) s2)
       INNER JOIN (SELECT SongbookID, SongID
-                  FROM songinstances_songbooks) si1
+                  FROM wsf_shiny.songinstances_songbooks) si1
       ON SongbookID1 = si1.SongbookID
       INNER JOIN (SELECT SongbookID, SongID
-                  FROM songinstances_songbooks) si2
+                  FROM wsf_shiny.songinstances_songbooks) si2
       ON SongbookID2 = si2.SongbookID
          AND si1.SongID = si2.SongID
  WHERE SongbookID1 < SongbookID2);
 COMMIT;
 
--- Table of arrangement types
-DROP TABLE IF EXISTS wsf_shiny.arrangementtypes;
-CREATE TABLE wsf_shiny.arrangementtypes AS
-(SELECT ArrangementTypeID,
-        ArrangementType
- FROM wsf.arrangementtypes);
-COMMIT;
-
--- Table that connects song instances and arrangement types
-DROP TABLE IF EXISTS wsf_shiny.songinstances_arrangementtypes;
-CREATE TABLE wsf_shiny.songinstances_arrangementtypes AS
-(SELECT DISTINCT SongInstanceID,
-        SongID,
-        ArrangementTypeID
- FROM wsf.songinstances
-      JOIN wsf.arrangements_arrangementtypes
-      ON songinstances.ArrangementID = arrangements_arrangementtypes.ArrangementID);
-COMMIT;
-
--- Table of key signatures
-DROP TABLE IF EXISTS wsf_shiny.keysignatures;
-CREATE TABLE wsf_shiny.keysignatures AS
-(SELECT KeySignatureID,
-        PitchName,
-        accidentals.AccidentalID,
-        AccidentalSymbol,
-        modes.ModeID,
-        ModeName
- FROM wsf.keysignatures
-      JOIN wsf.pitches
-      ON keysignatures.PitchID = pitches.PitchID
-      JOIN wsf.accidentals
-      ON keysignatures.AccidentalID = accidentals.AccidentalID
-      JOIN wsf.modes
-      ON keysignatures.ModeID = modes.ModeID);
-COMMIT;
-
--- Table that connects song instances and key signatures
-DROP TABLE IF EXISTS wsf_shiny.songinstances_keysignatures;
-CREATE TABLE wsf_shiny.songinstances_keysignatures AS
-(SELECT songinstances.SongInstanceID,
-        SongID, KeySignatureID
- FROM wsf.songinstances
-      JOIN wsf.songinstances_keysignatures
-      ON songinstances.SongInstanceID = songinstances_keysignatures.SongInstanceID);
-COMMIT;
-
--- Table of time signatures
-DROP TABLE IF EXISTS wsf_shiny.timesignatures;
-CREATE TABLE wsf_shiny.timesignatures AS
-(SELECT TimeSignatureID,
-        TimeSignatureBeat,
-        TimeSignatureMeasure
- FROM wsf.timesignatures);
-COMMIT;
-
--- Table that connects song instances and time signatures
-DROP TABLE IF EXISTS wsf_shiny.songinstances_timesignatures;
-CREATE TABLE wsf_shiny.songinstances_timesignatures AS
-(SELECT songinstances.SongInstanceID,
-        SongID,
-        TimeSignatureID
- FROM wsf.songinstances
-      JOIN wsf.songinstances_timesignatures
-      ON songinstances.SongInstanceID = songinstances_timesignatures.SongInstanceID);
-COMMIT;
-
--- Table of meters
-DROP TABLE IF EXISTS wsf_shiny.meters;
-CREATE TABLE wsf_shiny.meters AS
-(SELECT MeterID,
-        Meter,
-        Multiplier
- FROM wsf.meters);
-COMMIT;
-
--- Table that connects song instances and meters
-DROP TABLE IF EXISTS wsf_shiny.songinstances_meters;
-CREATE TABLE wsf_shiny.songinstances_meters AS
-(SELECT songinstances.SongInstanceID,
-        SongID,
-        MeterID
- FROM wsf.songinstances
-      JOIN wsf.songinstances_lyrics
-      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      JOIN wsf.lyrics_meters
-      ON songinstances_lyrics.LyricsID = lyrics_meters.LyricsID
- UNION DISTINCT
- SELECT songinstances.SongInstanceID, SongID, MeterID
- FROM wsf.songinstances
-      JOIN wsf.songinstances_tunes
-      ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
-      JOIN wsf.tunes_meters
-      ON songinstances_tunes.TuneID = tunes_meters.TuneID);
-COMMIT;
-
--- Table of lyrics first lines for all song instances
-DROP TABLE IF EXISTS wsf_shiny.lyrics_first_lines;
-CREATE TABLE wsf_shiny.lyrics_first_lines AS
-(SELECT SongInstanceID,
-        FirstLine,
-        RefrainFirstLine
- FROM wsf.songinstances_lyrics
-      JOIN wsf.lyrics
-      ON songinstances_lyrics.LyricsID = lyrics.LyricsID);
-COMMIT;
+-- WORSHIP HISTORY DATA --
 
 -- Table of worship slots
 DROP TABLE IF EXISTS wsf_shiny.worshipslots;
@@ -376,44 +779,6 @@ CREATE TABLE wsf_shiny.worshipslots AS
         WorshipSlot,
         WorshipSlotOrder
  FROM wsf.worshipslots);
-COMMIT;
-
--- Table that connects song instances and lyrics
-DROP TABLE IF EXISTS wsf_shiny.songinstances_lyrics;
-CREATE TABLE wsf_shiny.songinstances_lyrics AS
-(SELECT SongInstanceID,
-        LyricsID
- FROM wsf.songinstances_lyrics);
-COMMIT;
-
--- Table that connects lyrics and translations
-DROP TABLE IF EXISTS wsf_shiny.lyrics_translations;
-CREATE TABLE wsf_shiny.lyrics_translations AS
-(SELECT lyrics.LyricsID,
-        TranslatedFromID,
-        CASE WHEN lyrics.LanguageID = sources.LanguageID
-                  THEN 'alt'
-             ELSE 'tr'
-        END AS Type
- FROM wsf.lyrics
-      JOIN wsf.lyrics_translations
-      ON lyrics.LyricsID = lyrics_translations.LyricsID
-      JOIN wsf.lyrics sources
-      ON lyrics_translations.TranslatedFromID = sources.LyricsID);
-COMMIT;
-
--- Table that connects lyrics and artists
-DROP TABLE IF EXISTS wsf_shiny.lyrics_artists;
-CREATE TABLE wsf_shiny.lyrics_artists AS
-(SELECT LyricsID, ArtistID
- FROM wsf.lyrics_artists);
-COMMIT;
-
--- Table of full lyrics
-DROP TABLE IF EXISTS wsf_shiny.full_lyrics;
-CREATE TABLE wsf_shiny.full_lyrics AS
-(SELECT LyricsID, FullLyrics
- FROM wsf.all_lyrics);
 COMMIT;
 
 -- Table of worship history
@@ -425,6 +790,8 @@ CREATE TABLE wsf_shiny.worshiphistory AS
         WorshipSlotID
  FROM wsf.worshiphistory);
 COMMIT;
+
+-- PSALM SONG DATA --
 
 -- Table of metrical psalms
 DROP TABLE IF EXISTS wsf_shiny.metricalpsalms;
@@ -439,13 +806,22 @@ COMMIT;
 
 -- Table that connects psalm songs and lyrics
 DROP TABLE IF EXISTS wsf_shiny.psalmsongs_lyrics;
-CREATE TABLE wsf_shiny.psalmsongs_lyrics AS
+CREATE TABLE wsf_shiny.psalmsongs_lyrics
+(PsalmSongID varchar(10),
+ LyricsID int,
+ FirstLine varchar(1000),
+ LanguageID int,
+ PublicDomain varchar(1000),
+ LyricsOrder int,
+ IncludeInSearch varchar(1));
+INSERT INTO wsf_shiny.psalmsongs_lyrics
 (SELECT DISTINCT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
         lyrics.LyricsID, lyrics.FirstLine, lyrics.LanguageID,
         public_domain.PublicDomain,
         ROW_NUMBER() OVER (PARTITION BY psalmsongs.PsalmSongID,
                                         songinstances.SongInstanceID
-                           ORDER BY lyrics.LyricsID) AS LyricsOrder
+                           ORDER BY lyrics.LyricsID) AS LyricsOrder,
+        IncludeInSearch
  FROM wsf.psalmsongs
       INNER JOIN wsf.songinstances
       ON psalmsongs.SongID = songinstances.SongID
@@ -461,12 +837,15 @@ CREATE TABLE wsf_shiny.psalmsongs_lyrics AS
                   FROM wsf.lyrics_copyrightholders
                   GROUP BY LyricsID) public_domain
       ON songinstances_lyrics.LyricsID = public_domain.LyricsID
- UNION ALL
- SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
+      INNER JOIN wsf_shiny.songs
+      ON psalmsongs.SongID = songs.SongID);
+INSERT INTO wsf_shiny.psalmsongs_lyrics
+(SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
 		lyrics.LyricsID, lyrics.FirstLine, lyrics.LanguageID,
         public_domain.PublicDomain,
         ROW_NUMBER() OVER (PARTITION BY metricalpsalms.MetricalPsalmID
-                           ORDER BY AvgVerse) AS LyricsOrder
+                           ORDER BY AvgVerse) AS LyricsOrder,
+        'Y' AS IncludeInSearch
  FROM wsf.metricalpsalms
       INNER JOIN wsf.metricalpsalms_lyrics
       ON metricalpsalms.MetricalPsalmID = metricalpsalms_lyrics.MetricalPsalmID
@@ -498,30 +877,76 @@ COMMIT;
 
 -- Table of psalm songs
 DROP TABLE IF EXISTS wsf_shiny.psalmsongs;
-CREATE TABLE wsf_shiny.psalmsongs AS
+CREATE TABLE wsf_shiny.psalmsongs
+(PsalmSongID varchar(50),
+ PsalmNumber int,
+ SongID int,
+ PsalmSongTypeID int,
+ PsalmSongType varchar(100),
+ PsalmSongTitle varchar(500),
+ PrettyScriptureList varchar(500),
+ Artists varchar(500),
+ IncludeInSearch varchar(1));
+INSERT INTO wsf_shiny.psalmsongs
 (SELECT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
         PsalmNumber, psalmsongs.SongID, psalmsongs.PsalmSongTypeID,
         PsalmSongType, SongName AS PsalmSongTitle,
-		PrettyScriptureList
+		REGEXP_REPLACE(PrettyScriptureList, '^Ps [0-9]+:', '') AS PrettyScriptureList,
+        Artists, IncludeInSearch
  FROM wsf.psalmsongs
       LEFT JOIN wsf.psalmsongtypes
       ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
-      LEFT JOIN wsf.songs
+      LEFT JOIN wsf_shiny.songs
       ON psalmsongs.SongID = songs.SongID
       LEFT JOIN wsf.psalmsongs_prettyscripturelists
       ON psalmsongs.PsalmSongID = psalmsongs_prettyscripturelists.PsalmSongID
- UNION ALL
- SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
+      LEFT JOIN (SELECT SongID,
+                        CASE WHEN Lyricists = Composers
+                                  THEN CONCAT('Lyrics & Music: ', Lyricists)
+                             ELSE CONCAT(CASE WHEN Lyricists IS NULL THEN ''
+                                              ELSE CONCAT('Lyrics: ', Lyricists)
+                                         END,
+                                         CASE WHEN Lyricists IS NULL
+                                                   OR Composers IS NULL
+                                                   THEN ''
+                                              ELSE '; '
+                                         END,
+                                         CASE WHEN Composers IS NULL THEN ''
+                                              ELSE CONCAT('Music: ', Composers)
+                                         END)
+                        END AS Artists,
+                        ROW_NUMBER() OVER (PARTITION BY SongID
+                                           ORDER BY GREATEST(COALESCE(LastLyricsYear, 0),
+                                                             COALESCE(LastTuneYear, 0))) AS RowNum
+                 FROM wsf_shiny.songinstances) songinstances
+      ON psalmsongs.SongID = songinstances.SongID
+         AND songinstances.RowNum = 1);
+INSERT INTO wsf_shiny.psalmsongs
+(SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
         PsalmNumber, NULL AS SongID, NULL AS PsalmSongTypeID,
         'Paraphrase' AS PsalmSongType, FirstLine AS PsalmSongTitle,
-        PrettyScriptureList
+        PrettyScriptureList, Artists, 'Y' AS IncludeInSearch
  FROM wsf.metricalpsalms
       INNER JOIN (SELECT PsalmSongID, FirstLine
                   FROM wsf_shiny.psalmsongs_lyrics
                   WHERE LyricsOrder = 1) not_psalmsongs
       ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = not_psalmsongs.PsalmSongID
 	  LEFT JOIN wsf.metricalpsalms_prettyscripturelists
-      ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID);
+      ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID
+      LEFT JOIN (SELECT MetricalPsalmID,
+                        CONCAT('Lyrics: ',
+                               GROUP_CONCAT(DISTINCT ArtistName
+                                            ORDER BY LastName, FirstName
+                                            SEPARATOR ', ')) AS Artists
+                 FROM wsf.metricalpsalms_lyrics
+                      INNER JOIN wsf.lyrics_artists
+                      ON metricalpsalms_lyrics.LyricsID = lyrics_artists.LyricsID
+                      INNER JOIN wsf_shiny.artists
+                      ON lyrics_artists.ArtistID = artists.ArtistID
+                 GROUP BY MetricalPsalmID) artists
+      ON metricalpsalms.MetricalPsalmID = artists.MetricalPsalmID);
+ALTER TABLE wsf_shiny.psalmsongs
+CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 COMMIT;
 
 -- Table of psalm song types
@@ -537,7 +962,8 @@ CREATE TABLE wsf_shiny.psalmsongs_alternativetunes
 (PsalmSongID varchar(10),
  TuneID int,
  TuneDisplayName varchar(100),
- Notes varchar(1000));
+ Notes varchar(1000),
+ IncludeInSearch varchar(1));
 INSERT INTO wsf_shiny.psalmsongs_alternativetunes
 (SELECT PsalmSongID, tunes.TuneID,
         CONCAT(CASE WHEN tunes.RealTuneName = 1
@@ -555,7 +981,8 @@ INSERT INTO wsf_shiny.psalmsongs_alternativetunes
                                COALESCE(tunes.CanonicalSongName,
                                         canonical_song.SongName),
                                '"')),
-                '#L#', CONCAT('"', PsalmSongTitle, '"')) AS Notes
+                '#L#', CONCAT('"', PsalmSongTitle, '"')) AS Notes,
+        psalmsongs.IncludeInSearch
  FROM wsf_shiny.psalmsongs
       INNER JOIN wsf.alternativetunes
       ON (PsalmSongID LIKE 'PS%'
