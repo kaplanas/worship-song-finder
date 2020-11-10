@@ -137,9 +137,11 @@ song.instances.songbooks.sql = "SELECT SongInstanceID, SongID, SongbookID,
                                 FROM wsf_shiny.songinstances_songbooks"
 song.instances.songbooks.df = dbGetQuery(wsf.shiny.con,
                                          paste(song.instances.songbooks.sql,
-                                               filter.sql,
+                                               ifelse(filter.sql == "",
+                                                      "WHERE 1 = 1 ",
+                                                      filter.sql),
                                                " AND (SongbookID <> 20
-                                               OR SongbookVolume IS NOT NULL)")) %>%
+                                                      OR SongbookVolume IS NOT NULL)")) %>%
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 songbook.id = SongbookID, songbook.name = SongbookName,
                 songbook.abbreviation = SongbookAbbreviation,
