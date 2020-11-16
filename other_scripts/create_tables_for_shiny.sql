@@ -1,4 +1,5 @@
 USE wsf_shiny;
+SET group_concat_max_len = 150000;
 
 -- SONGBOOK ENTRY DATA --
 
@@ -73,13 +74,14 @@ CREATE TABLE wsf_shiny.songinstances AS
  FROM wsf.songinstances 
       LEFT JOIN (SELECT SongInstanceID,
                         MAX(CopyrightYear) AS LastLyricsYear,
-                        GROUP_CONCAT(CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
+                        GROUP_CONCAT(DISTINCT CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS LyricsCopyright
                  FROM wsf.songinstances_lyrics
                       JOIN (SELECT lyrics.LyricsID,
                                    CopyrightYear,
-                                   GROUP_CONCAT(CASE WHEN copyrightholders.CopyrightHolderID <> 1
+                                   GROUP_CONCAT(DISTINCT
+                                                CASE WHEN copyrightholders.CopyrightHolderID <> 1
                                                           THEN CopyrightHolderName
                                                 END
                                                 ORDER BY CopyrightHolderName
@@ -96,13 +98,14 @@ CREATE TABLE wsf_shiny.songinstances AS
       ON songinstances.SongInstanceID = lyrics.SongInstanceID
       LEFT JOIN (SELECT SongInstanceID,
                         MAX(CopyrightYear) AS LastTuneYear,
-                        GROUP_CONCAT(CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
+                        GROUP_CONCAT(DISTINCT CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS TuneCopyright
                  FROM wsf.songinstances_tunes
                       JOIN (SELECT tunes.TuneID,
                                    CopyrightYear,
-                                   GROUP_CONCAT(CASE WHEN copyrightholders.CopyrightHolderID <> 1
+                                   GROUP_CONCAT(DISTINCT
+                                                CASE WHEN copyrightholders.CopyrightHolderID <> 1
                                                           THEN CopyrightHolderName
                                                 END
                                                 ORDER BY CopyrightHolderName
@@ -118,7 +121,7 @@ CREATE TABLE wsf_shiny.songinstances AS
                  GROUP BY SongInstanceID) tunes
       ON songinstances.SongInstanceID = tunes.SongInstanceID
       LEFT JOIN (SELECT a.ArrangementID,
-                        GROUP_CONCAT(CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
+                        GROUP_CONCAT(DISTINCT CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS ArrangementCopyright,
                         GROUP_CONCAT(ArrangementType
@@ -126,7 +129,8 @@ CREATE TABLE wsf_shiny.songinstances AS
                                      SEPARATOR ', ') AS ArrangementTypes
                  FROM (SELECT arrangements.ArrangementID,
                               CopyrightYear,
-                              GROUP_CONCAT(CASE WHEN copyrightholders.CopyrightHolderID <> 1
+                              GROUP_CONCAT(DISTINCT
+                                           CASE WHEN copyrightholders.CopyrightHolderID <> 1
                                                      THEN CopyrightHolderName
                                            END
                                            ORDER BY CopyrightHolderName
@@ -531,13 +535,6 @@ CREATE TABLE wsf_shiny.lyrics_first_lines AS
  WHERE lyrics.RefrainFirstLine IS NOT NULL);
 COMMIT;
 
--- Table of full lyrics
-DROP TABLE IF EXISTS wsf_shiny.full_lyrics;
-CREATE TABLE wsf_shiny.full_lyrics AS
-(SELECT LyricsID, FullLyrics
- FROM wsf.all_lyrics);
-COMMIT;
-
 -- Add more song instance info
 ALTER TABLE wsf_shiny.songinstances
 ADD Lyricists varchar(1000),
@@ -651,7 +648,7 @@ SET songinstances.Lyricists = lyricists.Lyricists,
                                                  END)
                                 END,
                                 CASE WHEN songinstances.ArrangementCopyright IS NULL THEN ''
-                                     ELSE CONCAT('<p>', songinstances.ArrangementCopyright, '</p>')
+                                     ELSE CONCAT('<p>Arrangement ', songinstances.ArrangementCopyright, '</p>')
                                 END,
                                 CONCAT('<p>', LyricsFirstLines, '</p>'));
 SET SQL_SAFE_UPDATES = 1;
@@ -666,6 +663,7 @@ CREATE TABLE wsf_shiny.songs
  SongName varchar(500),
  SongNameLower varchar(500),
  SongNameSort varchar(500),
+ PanelName varchar(10000),
  Copyrighted varchar(1),
  SongbookEntries varchar(1000),
  IncludeInSearch varchar(1));
@@ -673,12 +671,27 @@ INSERT INTO wsf_shiny.songs
 (SELECT songs.SongID,
         SongName, LOWER(SongName) AS SongNameLower,
         REGEXP_REPLACE(SongName, '^[\'\"¡¿]', '') AS SongNameSort,
+        CONCAT(SongName,
+               CASE WHEN songinstances.OtherTitles IS NOT NULL
+                         THEN CONCAT('<br/>', songinstances.OtherTitles)
+                    ELSE ''
+               END) AS PanelName,
         CASE WHEN copyrighted_songs.SongID IS NULL THEN 'N'
              ELSE 'Y'
         END AS Copyrighted,
         SongbookEntries,
         COALESCE(IncludeInSearch, 'N') AS IncludeInSearch
  FROM wsf.songs
+      LEFT JOIN (SELECT songs.SongID,
+                        GROUP_CONCAT(DISTINCT CONCAT('<i>', SongInstance, '</i>')
+                                     ORDER BY SongInstance
+                                     SEPARATOR '<br/>') AS OtherTitles
+                 FROM wsf.songinstances
+                      INNER JOIN wsf.songs
+                      ON songinstances.SongID = songs.SongID
+                 WHERE LOWER(SongInstance) <> LOWER(songs.SongName)
+                 GROUP BY songs.SongID) songinstances
+      ON songs.SongID = songinstances.SongID
       LEFT JOIN (SELECT DISTINCT songinstances.SongID
                  FROM wsf.songinstances
                       INNER JOIN wsf.songinstances_lyrics
@@ -875,24 +888,61 @@ INSERT INTO wsf_shiny.psalmsongs_lyrics
              ON songinstances.SongID = psalmsongs.SongID));
 COMMIT;
 
+-- Table of lyrics tabs for psalm songs
+DROP TABLE IF EXISTS wsf_shiny.psalmsongs_lyrics_tabs;
+CREATE TABLE wsf_shiny.psalmsongs_lyrics_tabs AS
+(SELECT PsalmSongID,
+        CONCAT('Lyrics',
+               CASE WHEN languages.LanguageID = 1 THEN ''
+                    ELSE CONCAT(' (', LanguageName, ')')
+               END) AS TabName,
+        GROUP_CONCAT(FullLyrics
+                     ORDER BY LyricsOrder
+                     SEPARATOR ' ') AS FullLyrics
+ FROM wsf_shiny.psalmsongs_lyrics
+      INNER JOIN wsf.languages
+      ON psalmsongs_lyrics.LanguageID = languages.LanguageID
+      INNER JOIN wsf.all_lyrics
+      ON psalmsongs_lyrics.LyricsID = all_lyrics.LyricsID
+ WHERE PublicDomain = 'Y'
+ GROUP BY PsalmSongID, 2);
+COMMIT;
+
 -- Table of psalm songs
 DROP TABLE IF EXISTS wsf_shiny.psalmsongs;
 CREATE TABLE wsf_shiny.psalmsongs
 (PsalmSongID varchar(50),
  PsalmNumber int,
  SongID int,
+ MetricalPsalmID int,
+ SongOrMetricalPsalmID varchar(20),
  PsalmSongTypeID int,
  PsalmSongType varchar(100),
  PsalmSongTitle varchar(500),
+ PanelName varchar(10000),
  PrettyScriptureList varchar(500),
  Artists varchar(500),
- IncludeInSearch varchar(1));
+ IncludeInSearch varchar(1),
+ HTMLInfo blob);
 INSERT INTO wsf_shiny.psalmsongs
 (SELECT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
-        PsalmNumber, psalmsongs.SongID, psalmsongs.PsalmSongTypeID,
-        PsalmSongType, SongName AS PsalmSongTitle,
+        PsalmNumber, psalmsongs.SongID, NULL AS MetricalPsalmID,
+        CONCAT('ps', psalmsongs.SongID) AS SongOrMetricalPsalmID,
+        psalmsongs.PsalmSongTypeID, PsalmSongType,
+        SongName AS PsalmSongTitle, songs.PanelName,
 		REGEXP_REPLACE(PrettyScriptureList, '^Ps [0-9]+:', '') AS PrettyScriptureList,
-        Artists, IncludeInSearch
+        Artists, IncludeInSearch,
+        CONCAT('<br/><h3>', PsalmSongType, '</h3>',
+               CASE WHEN songs.SongbookEntries IS NOT NULL
+                         THEN CONCAT('<p>', songs.SongbookEntries, '</p>')
+               END,
+               '<p><b>Verses:</b> ',
+               REGEXP_REPLACE(PrettyScriptureList, '^Ps [0-9]+:', ''),
+               '</p>',
+               CASE WHEN songinstances.Artists IS NOT NULL
+                         THEN CONCAT('<p>', songinstances.Artists, '</p>')
+               END,
+               '<p>', firstlines.FirstLines, '</p>') AS HTMLInfo
  FROM wsf.psalmsongs
       LEFT JOIN wsf.psalmsongtypes
       ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
@@ -920,12 +970,35 @@ INSERT INTO wsf_shiny.psalmsongs
                                                              COALESCE(LastTuneYear, 0))) AS RowNum
                  FROM wsf_shiny.songinstances) songinstances
       ON psalmsongs.SongID = songinstances.SongID
-         AND songinstances.RowNum = 1);
+         AND songinstances.RowNum = 1
+      LEFT JOIN (SELECT PsalmSongID,
+                        GROUP_CONCAT(FirstLine
+                                     ORDER BY LyricsOrder
+                                     SEPARATOR '<br/>') AS FirstLines
+                 FROM wsf_shiny.psalmsongs_lyrics
+                 GROUP BY PsalmSongID) firstlines
+      ON CONCAT('PS', psalmsongs.PsalmSongID) = firstlines.PsalmSongID);
 INSERT INTO wsf_shiny.psalmsongs
 (SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
-        PsalmNumber, NULL AS SongID, NULL AS PsalmSongTypeID,
-        'Paraphrase' AS PsalmSongType, FirstLine AS PsalmSongTitle,
-        PrettyScriptureList, Artists, 'Y' AS IncludeInSearch
+        PsalmNumber, NULL AS SongID, metricalpsalms.MetricalPsalmID,
+        CONCAT('mp', metricalpsalms.MetricalPsalmID) AS SongOrMetricalPsalmID,
+        NULL AS PsalmSongTypeID, 'Paraphrase' AS PsalmSongType,
+        FirstLine AS PsalmSongTitle,
+        CONCAT(FirstLine,
+               CASE WHEN laterfirstlines.LaterFirstLines IS NULL
+                         THEN ''
+                    ELSE CONCAT('<br/>', laterfirstlines.LaterFirstLines)
+               END) AS PanelName,
+        PrettyScriptureList, Artists,
+        'Y' AS IncludeInSearch,
+        CONCAT('<br/><h3>Paraphrase</h3>',
+               '<p><b>Verses:</b> ',
+               REGEXP_REPLACE(PrettyScriptureList, '^Ps [0-9]+:', ''),
+               '</p>',
+               CASE WHEN artists.Artists IS NOT NULL
+                         THEN CONCAT('<p>', artists.Artists, '</p>')
+               END,
+               '<p>', firstlines.FirstLines, '</p>') AS HTMLInfo
  FROM wsf.metricalpsalms
       INNER JOIN (SELECT PsalmSongID, FirstLine
                   FROM wsf_shiny.psalmsongs_lyrics
@@ -944,7 +1017,22 @@ INSERT INTO wsf_shiny.psalmsongs
                       INNER JOIN wsf_shiny.artists
                       ON lyrics_artists.ArtistID = artists.ArtistID
                  GROUP BY MetricalPsalmID) artists
-      ON metricalpsalms.MetricalPsalmID = artists.MetricalPsalmID);
+      ON metricalpsalms.MetricalPsalmID = artists.MetricalPsalmID
+      LEFT JOIN (SELECT PsalmSongID,
+                        GROUP_CONCAT(FirstLine
+                                     ORDER BY LyricsOrder
+                                     SEPARATOR '<br/>') AS FirstLines
+                 FROM wsf_shiny.psalmsongs_lyrics
+                 GROUP BY PsalmSongID) firstlines
+      ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = firstlines.PsalmSongID
+      LEFT JOIN (SELECT PsalmSongID,
+                        GROUP_CONCAT(CONCAT('<i>', FirstLine, '</i>')
+                                     ORDER BY LyricsOrder
+                                     SEPARATOR '<br/>') AS LaterFirstLines
+                 FROM wsf_shiny.psalmsongs_lyrics
+                 WHERE LyricsOrder > 1
+                 GROUP BY PsalmSongID) laterfirstlines
+      ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = laterfirstlines.PsalmSongID);
 ALTER TABLE wsf_shiny.psalmsongs
 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 COMMIT;
@@ -965,7 +1053,8 @@ CREATE TABLE wsf_shiny.psalmsongs_alternativetunes
  Notes varchar(1000),
  IncludeInSearch varchar(1));
 INSERT INTO wsf_shiny.psalmsongs_alternativetunes
-(SELECT PsalmSongID, tunes.TuneID,
+(SELECT psalmsongs.PsalmSongID,
+        tunes.TuneID,
         CONCAT(CASE WHEN tunes.RealTuneName = 1
                          THEN CONCAT(TuneName, ' (')
                     ELSE ''
@@ -985,10 +1074,7 @@ INSERT INTO wsf_shiny.psalmsongs_alternativetunes
         psalmsongs.IncludeInSearch
  FROM wsf_shiny.psalmsongs
       INNER JOIN wsf.alternativetunes
-      ON (PsalmSongID LIKE 'PS%'
-          AND psalmsongs.SongID = alternativetunes.SongID)
-         OR (PsalmSongID LIKE 'MP%'
-             AND SUBSTRING(PsalmSongID, 3) = MetricalPsalmID)
+      ON psalmsongs.SongOrMetricalPsalmID = alternativetunes.SongOrMetricalPsalmID
       INNER JOIN wsf.tunes
       ON alternativetunes.TuneID = tunes.TuneID
       INNER JOIN wsf.tunes_copyrightholders
@@ -1004,8 +1090,47 @@ INSERT INTO wsf_shiny.psalmsongs_alternativetunes
       ON tunes.TuneID = one_canonical_song.TuneID
       LEFT JOIN wsf.songs canonical_song
       ON one_canonical_song.SongID = canonical_song.SongID
- WHERE songs.SongID IS NULL);
+ WHERE songs.SongID IS NULL
+);
 COMMIT;
+
+-- Add more psalm song info
+ALTER TABLE wsf_shiny.psalmsongs
+ADD HTMLAlternatives blob;
+SET SQL_SAFE_UPDATES = 0;
+UPDATE wsf_shiny.psalmsongs
+       LEFT JOIN (SELECT PsalmSongID,
+                         GROUP_CONCAT(DISTINCT
+                                      CONCAT('<div>',
+                                             '<b>', TuneDisplayName, '</b>',
+                                             CASE WHEN TuneEntries IS NOT NULL
+                                                       THEN CONCAT('<br/><i>',
+                                                                   TuneEntries,
+                                                                   '</i>')
+                                             END,
+                                             CASE WHEN Notes IS NOT NULL
+                                                       THEN CONCAT('<br/><p>',
+                                                                   Notes,
+                                                                   '</p>')
+                                             END,
+                                             '</div>')
+                                      ORDER BY TuneDisplayName
+                                      SEPARATOR '') AS AlternativeTunes
+                  FROM wsf_shiny.psalmsongs_alternativetunes
+                       LEFT JOIN (SELECT TuneID,
+                                         GROUP_CONCAT(EntryString
+                                                      ORDER BY SongbookName, EntryNumber
+                                                      SEPARATOR ', ') AS TuneEntries
+                                  FROM wsf.songinstances_tunes
+                                       INNER JOIN wsf_shiny.songinstances_songbooks
+                                       ON songinstances_tunes.SongInstanceID = songinstances_songbooks.SongInstanceID
+                                  GROUP BY TuneID) tuneentries
+                       ON psalmsongs_alternativetunes.TuneID = tuneentries.TuneID
+                  GROUP BY PsalmSongID) psalmsongs_alternativetunes
+       ON CONVERT(psalmsongs.PsalmSongID USING utf8mb4) = psalmsongs_alternativetunes.PsalmSongID
+SET psalmsongs.HTMLAlternatives = CONCAT('<p></p>',
+                                         psalmsongs_alternativetunes.AlternativeTunes);
+SET SQL_SAFE_UPDATES = 1;
 
 -- Table that connects tunes and canonical songs
 DROP TABLE IF EXISTS wsf_shiny.tunes_canonicalsongs;

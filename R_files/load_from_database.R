@@ -174,9 +174,9 @@ song.instances.arrangement.types.df = dbGetQuery(wsf.shiny.con,
 
 # Get table of key signatures
 key.signatures.sql = "SELECT KeySignatureID, PitchName, AccidentalID,
-AccidentalSymbol, ModeID, ModeName,
-KeySignatureString
-FROM wsf_shiny.keysignatures"
+                             AccidentalSymbol, ModeID, ModeName,
+                             KeySignatureString
+                      FROM wsf_shiny.keysignatures"
 key.signatures.df = dbGetQuery(wsf.shiny.con,
                                paste(key.signatures.sql, filter.sql)) %>%
   dplyr::select(key.signature.id = KeySignatureID, pitch.name = PitchName,
@@ -190,8 +190,8 @@ Encoding(key.signatures.df$key.signature.string) = "UTF-8"
 
 # Get table that connects song instances and key signatures
 song.instances.key.signatures.sql = "SELECT SongInstanceID, SongID,
-KeySignatureID
-FROM wsf_shiny.songinstances_keysignatures"
+                                            KeySignatureID
+                                     FROM wsf_shiny.songinstances_keysignatures"
 song.instances.key.signatures.df = dbGetQuery(wsf.shiny.con,
                                               paste(song.instances.key.signatures.sql,
                                                     filter.sql)) %>%
@@ -238,38 +238,31 @@ song.instances.meters.df = dbGetQuery(wsf.shiny.con,
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 meter.id = MeterID)
 
-# Get table of full lyrics
-full.lyrics.sql = "SELECT LyricsID, FullLyrics
-FROM wsf_shiny.full_lyrics"
-full.lyrics.df = dbGetQuery(wsf.shiny.con, full.lyrics.sql) %>%
-  dplyr::select(lyrics.id = LyricsID, full.lyrics = FullLyrics)
-Encoding(full.lyrics.df$full.lyrics) = "UTF-8"
-
 #### Song info ####
 
 # Get table of songs
-songs.sql = "SELECT SongID, SongName, SongNameLower, SongNameSort, Topics
-FROM wsf_shiny.songs"
+songs.sql = "SELECT SongID, SongName, SongNameSort, PanelName, Topics
+             FROM wsf_shiny.songs"
 songs.df = dbGetQuery(wsf.shiny.con,
                       paste(songs.sql, filter.sql)) %>%
   dplyr::select(song.id = SongID, song.name = SongName,
-                song.name.lower = SongNameLower,
-                song.name.sort = SongNameSort, topics = Topics)
+                song.name.sort = SongNameSort, panel.name = PanelName,
+                topics = Topics)
 Encoding(songs.df$song.name) = "UTF-8"
-Encoding(songs.df$song.name.lower) = "UTF-8"
 Encoding(songs.df$song.name.sort) = "UTF-8"
+Encoding(songs.df$panel.name) = "UTF-8"
 Encoding(songs.df$topics) = "UTF-8"
 
 # Get table of topics
 topics.sql = "SELECT TopicID, TopicName
-FROM wsf_shiny.topics"
+              FROM wsf_shiny.topics"
 topics.df = dbGetQuery(wsf.shiny.con, paste(topics.sql, filter.sql)) %>%
   dplyr::select(topic.id = TopicID, topic.name = TopicName)
 Encoding(topics.df$topic.name) = "UTF-8"
 
 # Get table that connects songs and topics
 songs.topics.sql = "SELECT SongID, TopicID
-FROM wsf_shiny.songs_topics"
+                    FROM wsf_shiny.songs_topics"
 songs.topics.df = dbGetQuery(wsf.shiny.con,
                              paste(songs.topics.sql, filter.sql)) %>%
   dplyr::select(song.id = SongID, topic.id = TopicID)
@@ -321,32 +314,36 @@ if(version == "ctcc") {
 
 # Get table of psalm songs
 psalm.songs.sql = "SELECT PsalmSongID, PsalmNumber, SongID, PsalmSongTypeID,
-                          PsalmSongType, PsalmSongTitle,
-                          PrettyScriptureList, Artists
+                          PsalmSongType, PsalmSongTitle, PanelName,
+                          PrettyScriptureList, Artists, HTMLInfo,
+                          HTMLAlternatives
                    FROM wsf_shiny.psalmsongs"
 psalm.songs.df = dbGetQuery(wsf.shiny.con,
                             paste(psalm.songs.sql, filter.sql)) %>%
   dplyr::select(psalm.song.id = PsalmSongID, psalm.number = PsalmNumber,
                 song.id = SongID, psalm.song.type.id = PsalmSongTypeID,
                 psalm.song.type = PsalmSongType,
-                psalm.song.title = PsalmSongTitle,
-                pretty.scripture.list = PrettyScriptureList, artists = Artists)
+                psalm.song.title = PsalmSongTitle, panel.name = PanelName,
+                pretty.scripture.list = PrettyScriptureList, artists = Artists,
+                html.info = HTMLInfo, html.alternatives = HTMLAlternatives)
 Encoding(psalm.songs.df$psalm.song.type) = "UTF-8"
 Encoding(psalm.songs.df$psalm.song.title) = "UTF-8"
+Encoding(psalm.songs.df$panel.name) = "UTF-8"
 Encoding(psalm.songs.df$pretty.scripture.list) = "UTF-8"
 Encoding(psalm.songs.df$artists) = "UTF-8"
+Encoding(psalm.songs.df$html.info) = "UTF-8"
+Encoding(psalm.songs.df$html.alternatives) = "UTF-8"
 
 # Get table that connecs psalm songs and lyrics
-psalm.songs.lyrics.sql = "SELECT PsalmSongID, LyricsID, FirstLine, LanguageID,
-                                 PublicDomain, LyricsOrder
-                          FROM wsf_shiny.psalmsongs_lyrics"
+psalm.songs.lyrics.sql = "SELECT PsalmSongID, TabName, FullLyrics
+                          FROM wsf_shiny.psalmsongs_lyrics_tabs"
 psalm.songs.lyrics.df = dbGetQuery(wsf.shiny.con,
                                    paste(psalm.songs.lyrics.sql,
                                          filter.sql)) %>%
-  dplyr::select(psalm.song.id = PsalmSongID, lyrics.id = LyricsID,
-                first.line = FirstLine, language.id = LanguageID,
-                public.domain = PublicDomain, lyrics.order = LyricsOrder)
-Encoding(psalm.songs.lyrics.df$first.line) = "UTF-8"
+  dplyr::select(psalm.song.id = PsalmSongID, tab.name = TabName,
+                full.lyrics = FullLyrics)
+Encoding(psalm.songs.lyrics.df$tab.name) = "UTF-8"
+Encoding(psalm.songs.lyrics.df$full.lyrics) = "UTF-8"
 
 # Get table of psalm song types
 psalm.song.types.sql = "SELECT PsalmSongTypeID, PsalmSongType
@@ -407,8 +404,8 @@ song.info.df = songs.df %>%
   mutate(year = ifelse(is.na(last.lyrics.year) & is.na(last.tune.year),
                        NA, pmax(last.lyrics.year, last.tune.year)),
          decade = floor(year / 10) * 10) %>%
-  dplyr::select(song.id, title = song.name, title.lower = song.name.lower,
-                topics, year, decade, songbook.entries)
+  dplyr::select(song.id, title = song.name, panel.name, topics, year, decade,
+                songbook.entries)
 
 # Create nodes and edges for songbook overlap graph
 songbook.group.colors = brewer.pal(5, "Set3")[c(5, 3, 1, 2, 4)]
