@@ -156,11 +156,23 @@ help.page = tabPanel("Help",
                      )
             )
 
+page.header = tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"),
+                        tags$meta(property = "og:type", content = "website"),
+                        tags$meta(property = "og:url",
+                                  content = "https://worshipsongfinder.com/worship-song-finder/"),
+                        tags$meta(property = "og:title",
+                                  content = "Worship Song Finder"),
+                        tags$meta(property = "og:image",
+                                  content = "https://worshipsongfinder.com/worship-song-finder/wsf_screenshot.png"),
+                        tags$meta(property = "og:description",
+                                  content = "Search tool for worship songs in the hymnody of the Churches of Christ"))
+
 # Define UI
 if(version == "ctcc") {
   ui <- navbarPage(
     page.title,
     theme = page.theme,
+    header = page.header,
     search.page,
     worship.history.page,
     song.analysis.page,
@@ -171,6 +183,7 @@ if(version == "ctcc") {
   ui <- navbarPage(
     page.title,
     theme = page.theme,
+    header = page.header,
     search.page,
     song.analysis.page,
     psalm.singing.page,
