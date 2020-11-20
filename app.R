@@ -26,7 +26,9 @@ source("R_files/database_connection_local.R", local = T)
 
 # Connect to the database
 wsf.shiny.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                          dbname = db.name, host = db.host, port = 3306)
+                          dbname = ifelse(version == "ctcc", "wsf_shiny_ctcc",
+                                          "wsf_shiny"),
+                          host = db.host, port = 3306)
 on.exit(dbDisconnect(wsf.shiny.con), add = T)
 dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
 
@@ -152,7 +154,9 @@ help.page = tabPanel("Help",
                        tabPanel("The scripture reference filter",
                                 includeHTML("help/scripture_reference_filter.html")),
                        tabPanel("Who should I contact with questions/comments/complaints/etc.?",
-                                includeHTML("help/contact.html"))
+                                includeHTML("help/contact.html")),
+                       tabPanel("Can I get the raw database?",
+                                includeHTML("help/source_code.html"))
                      )
             )
 

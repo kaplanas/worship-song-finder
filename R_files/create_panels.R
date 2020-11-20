@@ -46,7 +46,7 @@ meter.list = song.instances.meters.df %>%
   dplyr::select(meter.id, song.id) %>%
   group_by(meter.id) %>%
   summarise(num.songs = n()) %>%
-  filter(num.songs >= 3,
+  filter(num.songs >= 5,
          meter.id != 1) %>%
   inner_join(meters.df, by = c("meter.id")) %>%
   mutate(meter.for.sort = sapply(meter.string,
