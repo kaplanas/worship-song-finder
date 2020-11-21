@@ -1,6 +1,6 @@
 -- Use a parameter to determine whether we're using filtered data
 -- or not.
-USE wsf_shiny;
+USE wsf_shiny_ctcc;
 SET group_concat_max_len = 150000;
 
 -- SONGBOOK ENTRY DATA --
@@ -659,7 +659,7 @@ INSERT INTO songs
                          THEN CONCAT('<br/>', songinstances.OtherTitles)
                     ELSE ''
                END) AS PanelName,
-        CASE WHEN copyrighted_songs.SongID IS NULL THEN 'N'
+        CASE WHEN copyrighted_songs.AnyPublicDomain = 'Y' THEN 'N'
              ELSE 'Y'
         END AS Copyrighted,
         SongbookEntries
@@ -668,19 +668,27 @@ INSERT INTO songs
                         GROUP_CONCAT(DISTINCT CONCAT('<i>', SongInstance, '</i>')
                                      ORDER BY SongInstance
                                      SEPARATOR '<br/>') AS OtherTitles
-                 FROM wsf.songinstances
+                 FROM wsf_shiny.songinstances
                       INNER JOIN wsf.songs
                       ON songinstances.SongID = songs.SongID
                  WHERE LOWER(SongInstance) <> SUBSTRING(LOWER(songs.SongName), 1, LENGTH(SongInstance))
                  GROUP BY songs.SongID) songinstances
       ON songs.SongID = songinstances.SongID
-      LEFT JOIN (SELECT DISTINCT songinstances.SongID
-                 FROM wsf.songinstances
-                      INNER JOIN wsf.songinstances_lyrics
-                      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-                      INNER JOIN wsf.lyrics_copyrightholders
-                      ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
-                 WHERE lyrics_copyrightholders.CopyrightHolderID <> 1) copyrighted_songs
+      LEFT JOIN (SELECT SongID,
+                        CASE WHEN MIN(AnyCopyrighted) = 'N' THEN 'Y'
+                             ELSE 'N'
+                        END AS AnyPublicDomain
+                 FROM (SELECT songinstances.SongInstanceID, songinstances.SongID,
+                              CASE WHEN MAX(CopyrightHolderID) = 1 THEN 'N'
+                                   ELSE 'Y'
+                              END AS AnyCopyrighted
+                       FROM wsf.songinstances
+                            INNER JOIN wsf.songinstances_lyrics
+                            ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+                            INNER JOIN wsf.lyrics_copyrightholders
+                            ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
+                       GROUP BY songinstances.SongInstanceID, songinstances.SongID) copyrighted_songinstances
+                 GROUP BY SongID) copyrighted_songs
       ON songs.SongID = copyrighted_songs.SongID
       JOIN (SELECT SongID,
                    GROUP_CONCAT(DISTINCT EntryString
@@ -800,7 +808,7 @@ CREATE TABLE psalmsongs_lyrics
 INSERT INTO psalmsongs_lyrics
 (SELECT DISTINCT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
         lyrics.LyricsID, lyrics.FirstLine, lyrics.LanguageID,
-        public_domain.PublicDomain,
+        COALESCE(public_domain.PublicDomain, 'N') AS PublicDomain,
         ROW_NUMBER() OVER (PARTITION BY psalmsongs.PsalmSongID,
                                         songinstances.SongInstanceID
                            ORDER BY lyrics.LyricsID) AS LyricsOrder
@@ -811,20 +819,20 @@ INSERT INTO psalmsongs_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
       INNER JOIN wsf.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID
-      INNER JOIN (SELECT LyricsID,
-                         CASE WHEN MIN(CopyrightHolderID) = 1
-                                   THEN 'Y'
-                              ELSE 'N'
-                         END AS PublicDomain
-                  FROM wsf.lyrics_copyrightholders
-                  GROUP BY LyricsID) public_domain
+      LEFT JOIN (SELECT LyricsID,
+                        CASE WHEN MIN(CopyrightHolderID) = 1
+                                  THEN 'Y'
+                             ELSE 'N'
+                        END AS PublicDomain
+                 FROM wsf.lyrics_copyrightholders
+                 GROUP BY LyricsID) public_domain
       ON songinstances_lyrics.LyricsID = public_domain.LyricsID
       INNER JOIN songs
       ON psalmsongs.SongID = songs.SongID);
 INSERT INTO psalmsongs_lyrics
 (SELECT CONCAT('MP', metricalpsalms.MetricalPsalmID) AS PsalmSongID,
 		lyrics.LyricsID, lyrics.FirstLine, lyrics.LanguageID,
-        public_domain.PublicDomain,
+        COALESCE(public_domain.PublicDomain, 'N') AS PublicDomain,
         ROW_NUMBER() OVER (PARTITION BY metricalpsalms.MetricalPsalmID
                            ORDER BY AvgVerse) AS LyricsOrder
  FROM wsf.metricalpsalms
@@ -832,13 +840,13 @@ INSERT INTO psalmsongs_lyrics
       ON metricalpsalms.MetricalPsalmID = metricalpsalms_lyrics.MetricalPsalmID
       INNER JOIN wsf.lyrics
       ON metricalpsalms_lyrics.LyricsID = lyrics.LyricsID
-      INNER JOIN (SELECT LyricsID,
-                         CASE WHEN MIN(CopyrightHolderID) = 1
-                                   THEN 'Y'
-                              ELSE 'N'
-                         END AS PublicDomain
-                  FROM wsf.lyrics_copyrightholders
-                  GROUP BY LyricsID) public_domain
+      LEFT JOIN (SELECT LyricsID,
+                        CASE WHEN MIN(CopyrightHolderID) = 1
+                                  THEN 'Y'
+                             ELSE 'N'
+                        END AS PublicDomain
+                 FROM wsf.lyrics_copyrightholders
+                 GROUP BY LyricsID) public_domain
       ON lyrics.LyricsID = public_domain.LyricsID
       LEFT JOIN (SELECT lyrics_scripturereferences.LyricsID,
                         AVG(Verse) AS AvgVerse
@@ -902,14 +910,19 @@ INSERT INTO psalmsongs
         CONCAT('<br/><h3>', PsalmSongType, '</h3>',
                CASE WHEN songs.SongbookEntries IS NOT NULL
                          THEN CONCAT('<p>', songs.SongbookEntries, '</p>')
+                    ELSE ''
                END,
                '<p><b>Verses:</b> ',
                REGEXP_REPLACE(PrettyScriptureList, '^Ps [0-9]+:', ''),
                '</p>',
                CASE WHEN songinstances.Artists IS NOT NULL
                          THEN CONCAT('<p>', songinstances.Artists, '</p>')
+                    ELSE ''
                END,
-               '<p>', firstlines.FirstLines, '</p>') AS HTMLInfo
+               CASE WHEN firstlines.FirstLines IS NOT NULL
+                         THEN CONCAT('<p>', firstlines.FirstLines, '</p>')
+                    ELSE ''
+               END) AS HTMLInfo
  FROM wsf.psalmsongs
       JOIN wsf.psalmsongtypes
       ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
@@ -939,8 +952,8 @@ INSERT INTO psalmsongs
       ON psalmsongs.SongID = songinstances.SongID
          AND songinstances.RowNum = 1
       LEFT JOIN (SELECT PsalmSongID,
-                        GROUP_CONCAT(FirstLine
-                                     ORDER BY LyricsOrder
+                        GROUP_CONCAT(DISTINCT FirstLine
+                                     ORDER BY LanguageID, LyricsOrder
                                      SEPARATOR '<br/>') AS FirstLines
                  FROM psalmsongs_lyrics
                  GROUP BY PsalmSongID) firstlines
