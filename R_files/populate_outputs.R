@@ -264,7 +264,7 @@ line.plot = function(data, grouping.col, input.vals) {
     print(input.vals)
     groups.by.decade.df = data
     groups.by.decade.df$gc = groups.by.decade.df[,grouping.col]
-    groups.by.decade.df = groups.by.decade.df %>%
+    groups.by.decade.df %>%
       group_by(decade) %>%
       mutate(decade.total = n_distinct(song.id)) %>%
       ungroup() %>%
