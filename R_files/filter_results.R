@@ -110,8 +110,8 @@ if(length(input$songbookChoices) >= 1) {
     for(songbook.choice.id in input$songbookChoices) {
       results.df = song.instances.songbooks.df %>%
         filter(songbook.id == songbook.choice.id) %>%
-        inner_join(results.df, by = "song.id")
-        select(song.id, song.name) %>%
+        inner_join(results.df, by = "song.id") %>%
+        dplyr::select(song.id, song.name) %>%
         distinct()
     }
   }
@@ -119,7 +119,7 @@ if(length(input$songbookChoices) >= 1) {
     results.df = song.instances.songbooks.df %>%
       filter(is.element(songbook.id, input$songbookChoices)) %>%
       inner_join(results.df, by = "song.id") %>%
-      select(song.id, song.name) %>%
+      dplyr::select(song.id, song.name) %>%
       distinct
   }
 }
@@ -159,7 +159,7 @@ if(length(input$keyChoices) >= 1) {
       song.instances.include.df = song.instances.include.df %>%
         inner_join(song.instances.key.signatures.df,
                    by = "song.instance.id") %>%
-        filter(key.signature.id == keyChoiceID) %>%
+        filter(key.signature.id == key.choice.id) %>%
         dplyr::select(song.instance.id) %>%
         distinct()
     }
