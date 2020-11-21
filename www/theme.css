@@ -66,7 +66,7 @@ div {
   white-space: pre;
 }
 .lyrics-refrain:before {
-  content: "Refrain:\A";
+  content: "Chorus:\A";
   font-weight: bold;
   white-space: pre;
 }
@@ -76,7 +76,7 @@ div {
   white-space: pre;
 }
 .lyrics-prerefrain:before {
-  content: "Pre-refrain:\A";
+  content: "Pre-chorus:\A";
   font-weight: bold;
   white-space: pre;
 }
