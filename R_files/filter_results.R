@@ -234,3 +234,25 @@ if(length(input$meterChoices) >= 1) {
       distinct()
   }
 }
+
+# Filter by tune name
+if(input$tuneName != "") {
+  if(input$tuneNameOptions == "String") {
+    parts = c(input$tuneName)
+  }
+  else {
+    parts = unlist(strsplit(input$tuneName, " "))
+    if(input$tuneNameOptions == "Whole words") {
+      parts = paste("\\b", parts, "\\b", sep = "")
+    }
+  }
+  for(part in parts) {
+    results.df = song.instances.tunes.df %>%
+      inner_join(tunes.df, by = "tune.id") %>%
+      filter(real.tune.name,
+             grepl(part, tune.name, ignore.case = T)) %>%
+      inner_join(results.df, by = "song.id") %>%
+      dplyr::select(song.id, song.name) %>%
+      distinct()
+  }
+}

@@ -28,7 +28,8 @@ output$songList = renderUI({
       length(input$languageChoices) > 0 |
       length(input$keyChoices) > 0 |
       length(input$timeChoices) > 0 |
-      length(input$meterChoices) > 0) |
+      length(input$meterChoices) > 0 |
+      input$tuneName != "") |
      length(input$requestChoices) > 0) {
     song.panels =
       lapply(1:nrow(results.df),

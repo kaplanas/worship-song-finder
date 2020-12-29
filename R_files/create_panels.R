@@ -173,6 +173,14 @@ meter.filter = tabPanel("Meter",
                                            choiceValues = meter.list$meter.id)
 )
 
+# Tune name filter
+tune.name.filter = tabPanel("Tune name",
+                            div(id = "tuneNameFilter",
+                                radioButtons("tuneNameOptions", NULL,
+                                             choices = c("Parts", "Whole words", "String")),
+                                textInput("tuneName", NULL))
+)
+
 # Psalm number filter
 psalm.number.filter = selectInput("psalmNumber",
                                   "Psalm number:",

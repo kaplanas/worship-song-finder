@@ -494,6 +494,27 @@ CREATE TABLE meters AS
       ON meters.MeterID = include_meter.MeterID);
 COMMIT;
 
+-- Table that connects song instances and tunes
+DROP TABLE IF EXISTS songinstances_tunes;
+CREATE TABLE songinstances_tunes AS
+(SELECT songinstances.SongInstanceID, SongID, TuneID
+ FROM songinstances
+      JOIN wsf.songinstances_tunes
+      ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID);
+COMMIT;
+
+-- Table of tunes
+DROP TABLE IF EXISTS tunes;
+CREATE TABLE tunes AS
+(SELECT tunes.TuneID,
+        TuneName,
+        RealTuneName
+ FROM wsf.tunes
+      JOIN (SELECT DISTINCT TuneID
+            FROM songinstances_tunes) include_tune
+      ON tunes.TuneID = include_tune.TuneID);
+COMMIT;
+
 -- Table of lyrics first lines for all song instances
 DROP TABLE IF EXISTS lyrics_first_lines;
 CREATE TABLE lyrics_first_lines AS
@@ -516,11 +537,13 @@ CREATE TABLE lyrics_first_lines AS
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
       INNER JOIN wsf.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID
- WHERE lyrics.RefrainFirstLine IS NOT NULL);
+ WHERE lyrics.RefrainFirstLine IS NOT NULL
+       AND lyrics.RefrainFirstLine <> '');
 COMMIT;
 
 -- Add more song instance info
 ALTER TABLE songinstances
+ADD Tunes varchar(1000),
 ADD Lyricists varchar(1000),
 ADD Composers varchar(1000),
 ADD Arrangers varchar(1000),
@@ -529,6 +552,16 @@ ADD TimeSignatures varchar(1000),
 ADD HTML blob;
 SET SQL_SAFE_UPDATES = 0;
 UPDATE songinstances
+       LEFT JOIN (SELECT SongInstanceID,
+                         GROUP_CONCAT(DISTINCT TuneName
+                                      ORDER BY TuneName
+                                      SEPARATOR ', ') AS Tunes
+                  FROM wsf.songinstances_tunes
+                       INNER JOIN tunes
+                       ON songinstances_tunes.TuneID = tunes.TuneID
+                  WHERE tunes.RealTuneName = 1
+                  GROUP BY SongInstanceID) tunes
+       ON songinstances.SongInstanceID = tunes.SongInstanceID
        LEFT JOIN (SELECT SongInstanceID,
                          GROUP_CONCAT(DISTINCT PrettyArtistString
                                       SEPARATOR ', ') AS Lyricists
@@ -582,7 +615,8 @@ UPDATE songinstances
                   FROM lyrics_first_lines
                   GROUP BY SongInstanceID) firstlines
        ON songinstances.SongInstanceID = firstlines.SongInstanceID
-SET songinstances.Lyricists = lyricists.Lyricists,
+SET songinstances.Tunes = tunes.Tunes,
+    songinstances.Lyricists = lyricists.Lyricists,
     songinstances.Composers = composers.Composers,
     songinstances.Arrangers = arrangers.Arrangers,
     songinstances.KeySignatures = keysignatures.KeySignatures,
@@ -590,9 +624,6 @@ SET songinstances.Lyricists = lyricists.Lyricists,
     songinstances.HTML = CONCAT('<hr/> <h3>', songinstances.SongInstance, '</h3>',
                                 CASE WHEN songinstances.SongbookEntries IS NULL THEN ''
                                      ELSE CONCAT('<p>', songinstances.SongbookEntries, '</p>')
-                                END,
-                                CASE WHEN songinstances.ArrangementTypes IS NULL THEN ''
-                                     ELSE CONCAT('<p>', songinstances.ArrangementTypes, '</p>')
                                 END,
                                 CASE WHEN keysignatures.KeySignatures IS NOT NULL
                                           OR timesignatures.TimeSignatures IS NOT NULL
@@ -607,20 +638,26 @@ SET songinstances.Lyricists = lyricists.Lyricists,
                                                       '</p>')
                                      ELSE ''
                                 END,
+                                CASE WHEN songinstances.Tunes IS NULL THEN ''
+                                     ELSE CONCAT('<p><b>Tune:</b>&nbsp;', songinstances.Tunes, '</p>')
+                                END,
+                                CASE WHEN songinstances.ArrangementTypes IS NULL THEN ''
+                                     ELSE CONCAT('<p><b>Arrangement type:</b>&nbsp;', songinstances.ArrangementTypes, '</p>')
+                                END,
                                 CASE WHEN songinstances.ScriptureReferences IS NULL THEN ''
-                                     ELSE CONCAT('<p>', songinstances.ScriptureReferences, '</p>')
+                                     ELSE CONCAT('<p><b>Scripture references:</b>&nbsp;', songinstances.ScriptureReferences, '</p>')
                                 END,
                                 CASE WHEN lyricists.Lyricists = composers.Composers
-                                          THEN CONCAT('<p>Lyrics & Music:&nbsp;', lyricists.Lyricists, '</p>')
+                                          THEN CONCAT('<p><b>Lyrics & Music:</b>&nbsp;', lyricists.Lyricists, '</p>')
                                      ELSE CONCAT(CASE WHEN lyricists.Lyricists IS NULL THEN ''
-                                                      ELSE CONCAT('<p>Lyrics:&nbsp;', lyricists.Lyricists, '</p>')
+                                                      ELSE CONCAT('<p><b>Lyrics:</b>&nbsp;', lyricists.Lyricists, '</p>')
                                                  END,
                                                  CASE WHEN composers.Composers IS NULL THEN ''
-                                                      ELSE CONCAT('<p>Music:&nbsp;', composers.Composers, '</p>')
+                                                      ELSE CONCAT('<p><b>Music:</b>&nbsp;', composers.Composers, '</p>')
                                                  END)
                                 END,
                                 CASE WHEN arrangers.Arrangers IS NULL THEN ''
-                                     ELSE CONCAT('<p>Arr.:&nbsp;', arrangers.Arrangers, '</p>')
+                                     ELSE CONCAT('<p><b>Arr.:</b>&nbsp;', arrangers.Arrangers, '</p>')
                                 END,
                                 CASE WHEN songinstances.LyricsCopyright = songinstances.TuneCopyright
                                           THEN CONCAT('<p>', songinstances.LyricsCopyright, '</p>')

@@ -210,6 +210,21 @@ song.instances.meters.df = dbGetQuery(wsf.shiny.con,
   dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
                 meter.id = MeterID)
 
+# Get table of tunes
+tunes.sql = "SELECT TuneID, TuneName, RealTuneName
+             FROM tunes"
+tunes.df = dbGetQuery(wsf.shiny.con, tunes.sql) %>%
+  mutate(real.tune.name = as.logical(as.numeric(RealTuneName))) %>%
+  dplyr::select(tune.id = TuneID, tune.name = TuneName, real.tune.name)
+
+# Get table that connects song instances and tunes
+song.instances.tunes.sql = "SELECT SongInstanceID, SongID, TuneID
+                            FROM songinstances_tunes"
+song.instances.tunes.df = dbGetQuery(wsf.shiny.con,
+                                     song.instances.tunes.sql) %>%
+  dplyr::select(song.instance.id = SongInstanceID, song.id = SongID,
+                tune.id = TuneID)
+
 #### Song info ####
 
 # Get table of songs
@@ -372,7 +387,7 @@ songbook.overlap.nodes.df = data.frame(songbook.id = unique(c(songbook.overlap.d
                                                               songbook.overlap.df$songbook.id.2))) %>%
   inner_join(songbooks.df, by = "songbook.id") %>%
   mutate(label = str_wrap(songbook.name, 15),
-         group = case_when(songbook.id %in% c(1, 6, 8, 11, 17) ~ 1,
+         group = case_when(songbook.id %in% c(1, 6, 8, 11, 17, 21, 22) ~ 1,
                            songbook.id %in% c(2, 3, 4, 5, 9) ~ 2,
                            songbook.id %in% c(10, 14, 15, 20) ~ 3,
                            songbook.id %in% c(13, 18, 19) ~ 4,

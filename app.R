@@ -69,6 +69,7 @@ search.page = tabPanel("Search for songs",
                              key.signature.filter,
                              time.signature.filter,
                              meter.filter,
+                             tune.name.filter,
                              well = F,
                              widths = c(6, 6)
                            ),
