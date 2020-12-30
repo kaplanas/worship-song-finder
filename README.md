@@ -15,7 +15,7 @@ Warning: this is _not_ just a single flat table!  Check out the [ERD](database_f
 
 * If you're comfortable in SQL, you can get a dump of the database.  There are two dump files:
   - [wsf.sql](database_files/wsf.sql): The raw database, as laid out in the ERD.
-  - [wsf_shiny.sql](database_files/wsf_shiny.sql): Denormalized tables in a format convenient for the Shiny app.  You can re-create this yourself by firing up MySQL, loading [wsf.sql](database_files/wsf.sql) into a schema called `wsf`, and then running [create_tables_for_shiny.sql](other_scripts/create_tables_for_shiny.sql).  (I haven't tested this script with any other SQL flavors.)
+  - [wsf_shiny.sql](database_files/wsf_shiny.sql): Denormalized tables in a format convenient for the Shiny app.  You can re-create this yourself by firing up MySQL, loading [wsf.sql](database_files/wsf.sql) into a schema called `wsf`, and then running [other_scripts/create_tables_for_shiny.sql](other_scripts/create_tables_for_shiny.sql).  (I haven't tested this script with any other SQL flavors.)
 * If you just want to look at the raw tables with low overhead, you can download a [zip file](database_files/csv_dumps.zip) of each raw table as a csv.  (Not explicitly shown in the ERD is the fact that each many-to-many relationship - and there are a _lot_ of them - gets its own bridge table.)
 
 ## The app

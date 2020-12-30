@@ -1,6 +1,6 @@
 -- Use a parameter to determine whether we're using filtered data
 -- or not.
-USE wsf_shiny_ctcc;
+USE wsf_shiny;
 SET group_concat_max_len = 150000;
 
 -- SONGBOOK ENTRY DATA --
