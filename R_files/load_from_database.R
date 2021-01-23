@@ -409,5 +409,6 @@ songbook.overlap.edges.df = songbook.overlap.df %>%
   mutate(title = paste(songbook.name.1, "<br/>", songbook.name.2, "<br/><i>",
                        n, " song", ifelse(n == 1, "", "s"), " in common</i>",
                        sep = ""),
-         value = weight)
+         value = weight,
+         weight = weight ^ (1 / 3))
 
