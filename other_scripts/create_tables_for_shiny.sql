@@ -25,13 +25,13 @@ CREATE TABLE songinstances_songbooks AS
         SongbookAbbreviation, SongbookVolumeID, SongbookVolume,
         EntryNumber,
         CONCAT(SongbookName,
-               CASE WHEN SongbookVolume IS NULL THEN ''
-                    WHEN SongbookID IN (0, 6) THEN ''
+               CASE WHEN EntryStringNoName IS NULL THEN ''
+                    WHEN EntryStringNoName = '' THEN ''
                     ELSE ' '
                END,
                EntryStringNoName) AS EntryString,
         CASE WHEN SongbookID = 12
-                  THEN CONCAT(EntryStringNoName, EntryNumber)
+                  THEN CONCAT(EntryStringNoName, ' ', EntryNumber)
              ELSE EntryStringNoName
         END AS EntryStringNoName
  FROM (SELECT songinstances.SongInstanceID, SongID,
@@ -39,13 +39,22 @@ CREATE TABLE songinstances_songbooks AS
               SongbookAbbreviation, songbookvolumes.SongbookVolumeID,
               SongbookVolume, EntryNumber,
               CONCAT(CASE WHEN SongbookVolume IS NULL THEN ''
-                          WHEN songbooks.SongbookID IN (0, 6) THEN ''
+                          WHEN songbooks.SongbookID = 6 THEN ''
+                          WHEN songbookvolumes.SongbookVolumeID = 2 THEN ''
                           ELSE CONCAT('(', SongbookVolume, ')')
                      END,
                      CASE WHEN songbooks.SongbookID = 12 THEN ''
                           WHEN EntryNumber IS NULL THEN ''
                           WHEN EntryNumber = '' THEN ''
-                          ELSE CONCAT(' ', EntryNumber)
+                          ELSE CONCAT(CASE WHEN songbookvolumes.SongbookVolume IS NULL
+                                                THEN ''
+                                           WHEN songbooks.SongbookID = 6
+                                                THEN ''
+                                           WHEN songbookvolumes.SongbookVolumeID = 2
+                                                THEN ''
+                                           ELSE ' '
+                                      END,
+                                      EntryNumber)
                      END) AS EntryStringNoName
        FROM wsf.songinstances
             JOIN wsf.songbookentries
