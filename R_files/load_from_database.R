@@ -228,13 +228,18 @@ song.instances.tunes.df = dbGetQuery(wsf.shiny.con,
 #### Song info ####
 
 # Get table of songs
-songs.sql = "SELECT SongID, SongName, SongNameSort, PanelName, Topics
+songs.sql = "SELECT SongID, SongName, SongDisambiguator, SongNameUnique,
+                    SongNameSort, PanelName, Topics
              FROM songs"
 songs.df = dbGetQuery(wsf.shiny.con, songs.sql) %>%
   dplyr::select(song.id = SongID, song.name = SongName,
+                song.disambiguator = SongDisambiguator,
+                song.name.unique = SongNameUnique,
                 song.name.sort = SongNameSort, panel.name = PanelName,
                 topics = Topics)
 Encoding(songs.df$song.name) = "UTF-8"
+Encoding(songs.df$song.disambiguator) = "UTF-8"
+Encoding(songs.df$song.name.unique) = "UTF-8"
 Encoding(songs.df$song.name.sort) = "UTF-8"
 Encoding(songs.df$panel.name) = "UTF-8"
 Encoding(songs.df$topics) = "UTF-8"

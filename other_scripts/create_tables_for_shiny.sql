@@ -691,16 +691,18 @@ DROP TABLE IF EXISTS songs;
 CREATE TABLE songs
 (SongID int,
  SongName varchar(500),
- SongNameLower varchar(500),
+ SongDisambiguator varchar(500),
+ SongNameUnique varchar(500),
  SongNameSort varchar(500),
  PanelName varchar(10000),
  Copyrighted varchar(1),
  SongbookEntries varchar(1000));
 INSERT INTO songs
 (SELECT songs.SongID,
-        SongName, LOWER(SongName) AS SongNameLower,
-        REGEXP_REPLACE(SongName, '^[\'\"¡¿]', '') AS SongNameSort,
-        CONCAT(SongName,
+        SongName, SongDisambiguator, SongNameUnique,
+        REGEXP_REPLACE(CONCAT(SongName, ' ', SongDisambiguator),
+                       '^[\'\"¡¿]', '') AS SongNameSort,
+        CONCAT(SongNameUnique,
                CASE WHEN songinstances.OtherTitles IS NOT NULL
                          THEN CONCAT('<br/>', songinstances.OtherTitles)
                     ELSE ''
@@ -709,7 +711,23 @@ INSERT INTO songs
              ELSE 'Y'
         END AS Copyrighted,
         SongbookEntries
- FROM wsf.songs
+ FROM (SELECT songs.SongID,
+              songs.SongName,
+              CONCAT(songs.SongName,
+                     CASE WHEN COUNT(*) OVER (PARTITION BY songs.SongName) > 1
+                               AND songs.SongDisambiguator IS NOT NULL
+                               THEN CONCAT(' (', songs.SongDisambiguator, ')')
+                          ELSE ''
+                     END) AS SongNameUnique,
+              CASE WHEN COUNT(*) OVER (PARTITION BY songs.SongName) > 1
+                        AND songs.SongDisambiguator IS NOT NULL
+                        THEN songs.SongDisambiguator
+                   ELSE ''
+              END AS SongDisambiguator
+       FROM wsf.songs
+            INNER JOIN (SELECT DISTINCT SongID
+                        FROM songinstances) si
+            ON songs.SongID = si.SongID) songs
       LEFT JOIN (SELECT songs.SongID,
                         GROUP_CONCAT(DISTINCT CONCAT('<i>', SongInstance, '</i>')
                                      ORDER BY SongInstance
