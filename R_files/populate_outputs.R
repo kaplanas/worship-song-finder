@@ -398,6 +398,9 @@ output$songbookSongsInCommon = renderDT({
     songs.df %>%
       dplyr::select(song.id, Song = song.name) %>%
       inner_join(song.instances.songbooks.df %>%
+                   group_by(song.id) %>%
+                   filter(n_distinct(songbook.id) == 1) %>%
+                   ungroup() %>%
                    filter(songbook.id == id) %>%
                    mutate(!!songbook.name := entry.string.no.name) %>%
                    dplyr::select(song.id, !!songbook.name),
