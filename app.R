@@ -125,7 +125,7 @@ psalm.singing.page = tabPanel("Psalm singing",
                                             "(or close paraphrase, of just a few lines; major focus of song)",
                                             style = "margin: 5px;"),
                                     tags$li(tags$span("Minor reference",
-                                                      style = "color: white; background-color: rgba(228, 26, 28, 0.6); padding: 2px;"),
+                                                      style = "color: white; background-color: rgba(120, 120, 120, 1); padding: 2px;"),
                                             style = "margin: 5px;")
                                   )),
                                   width = 3

@@ -48,11 +48,11 @@
   background-color: rgba(152, 78, 163, 0.7);
 }
 .nav-pills>li.psalmsongtype3>a {
-  background-color: rgba(228, 26, 28, 0.2);
+  background-color: rgba(120, 120, 120, 0.2);
   color: black;
 }
 .nav-pills>li.psalmsongtype3.active>a {
-  background-color: rgba(228, 26, 28, 0.6);
+  background-color: rgba(120, 120, 120, 1);
 }
 
 div {
