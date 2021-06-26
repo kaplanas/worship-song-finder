@@ -272,26 +272,15 @@ Encoding(songbook.overlap.df$songbook.name.2) = "UTF-8"
 
 #### Worship history info ####
 
-# Get table of worship slots
-if(version == "ctcc") {
-  worship.slots.sql = "SELECT WorshipSlotID, WorshipSlot, WorshipSlotOrder
-                       FROM worshipslots"
-  worship.slots.df = dbGetQuery(wsf.shiny.con, worship.slots.sql) %>%
-    dplyr::select(worship.slot.id = WorshipSlotID, worship.slot = WorshipSlot,
-                  worship.slot.order = WorshipSlotOrder)
-  Encoding(worship.slots.df$worship.slot) = "UTF-8"
-}
-
 # Get table of worship history
 if(version == "ctcc") {
   worship.history.sql = "SELECT WorshipHistoryID, SongInstanceID,
-                                WorshipHistoryDate, WorshipSlotID
+                                WorshipHistoryDate
                          FROM worshiphistory"
   worship.history.df = dbGetQuery(wsf.shiny.con, worship.history.sql) %>%
     dplyr::select(worship.history.id = WorshipHistoryID,
                   song.instance.id = SongInstanceID,
-                  worship.history.date = WorshipHistoryDate,
-                  worship.slot.id = WorshipSlotID)
+                  worship.history.date = WorshipHistoryDate)
   worship.history.df$worship.history.date = as.Date(worship.history.df$worship.history.date,
                                                     format = "%m/%d/%Y")
   worship.history.df = filter(worship.history.df,

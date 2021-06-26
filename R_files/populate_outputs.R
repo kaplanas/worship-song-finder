@@ -52,14 +52,12 @@ if(version == "ctcc") {
   output$recentSongList <- renderTable({
     recent.songs.df = worship.history.df %>%
       inner_join(song.instances.df, by = "song.instance.id") %>%
-      inner_join(worship.slots.df, by = "worship.slot.id") %>%
       filter(worship.history.date >= input$recentSongsDateRange[1],
              worship.history.date <= input$recentSongsDateRange[2]) %>%
       mutate(Date = format(worship.history.date, date.output.format),
-             Song = song.instance,
-             Position = worship.slot) %>%
+             Song = song.instance) %>%
       arrange(desc(worship.history.date), worship.history.id) %>%
-      dplyr::select(Date, Song, Position)
+      dplyr::select(Date, Song)
   })
   
   # Populate the list of frequent songs
@@ -88,21 +86,10 @@ if(version == "ctcc") {
       inner_join(song.instances.df, by = "song.instance.id") %>%
       inner_join(songs.topics.df, by = "song.id") %>%
       inner_join(topics.df, by = "topic.id") %>%
-      mutate(new.worship.slot.id = ifelse(is.element(worship.slot.id, c(4, 5)), 3,
-                                          worship.slot.id)) %>%
-      inner_join(worship.slots.df,
-                 by = c("new.worship.slot.id" = "worship.slot.id")) %>%
       filter(worship.history.date >= input$songYearDateRange[1],
              worship.history.date <= input$songYearDateRange[2]) %>%
-      dplyr::select(song.id, topic.name, worship.history.date, worship.slot.id,
-                    worship.slot) %>%
+      dplyr::select(song.id, topic.name, worship.history.date) %>%
       distinct()
-    frequent.topics.df$worship.slot = factor(frequent.topics.df$worship.slot,
-                                             levels = worship.slots.df$worship.slot)
-    if(length(input$recentTopicSlots) > 0) {
-      frequent.topics.df = frequent.topics.df %>%
-        filter(worship.slot %in% input$recentTopicSlots)
-    }
     g = ggplot(frequent.topics.df,
                aes(x = reorder(topic.name, table(topic.name)[topic.name]))) +
       geom_bar() +
@@ -112,11 +99,6 @@ if(version == "ctcc") {
       theme(axis.title = element_text(size = 16),
             axis.text = element_text(size = 14),
             axis.ticks.x = element_blank())
-    if(length(input$recentTopicSlots) > 0) {
-      g = g +
-        facet_grid(. ~ worship.slot) +
-        theme(axis.text.x = element_blank())
-    }
     g
   })
   

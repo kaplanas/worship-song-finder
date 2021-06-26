@@ -64,14 +64,6 @@ meter.list = song.instances.meters.df %>%
   arrange(meter.for.sort) %>%
   select(meter.id, meter = meter.string)
 
-# Worship slots
-if(version == "ctcc") {
-  worship.slot.list = worship.slots.df %>%
-    arrange(worship.slot.order) %>%
-    filter(!is.element(worship.slot.id, c(4, 5))) %>%
-    dplyr::select(worship.slot.id, worship.slot)
-}
-
 # Psalm numbers
 psalm.number.list = 1:150
 
@@ -234,13 +226,7 @@ if(version == "ctcc") {
                                                                   separator = date.input.sep,
                                                                   format = date.input.format,
                                                                   min = date.input.min,
-                                                                  start = date.input.start)),
-                                            column(5,
-                                                   pickerInput("recentTopicSlots",
-                                                               "Separate by position in service:",
-                                                               multiple = T,
-                                                               options = list(`actions-box` = TRUE),
-                                                               choices = worship.slot.list$worship.slot))),
+                                                                  start = date.input.start))),
                                    plotOutput("frequentTopicPlot",
                                               height = "1000px")
                                    )

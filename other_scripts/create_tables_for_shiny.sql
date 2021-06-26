@@ -1,6 +1,6 @@
 -- Use a parameter to determine whether we're using filtered data
 -- or not.
-USE wsf_shiny;
+USE wsf_shiny_ctcc;
 SET group_concat_max_len = 150000;
 
 -- SONGBOOK ENTRY DATA --
@@ -826,23 +826,12 @@ COMMIT;
 
 -- WORSHIP HISTORY DATA --
 
--- Table of worship slots
-DROP TABLE IF EXISTS worshipslots;
-CREATE TABLE worshipslots AS
-(SELECT WorshipSlotID,
-        WorshipSlot,
-        WorshipSlotOrder
- FROM wsf.worshipslots
- WHERE DATABASE() = 'wsf_shiny_ctcc');
-COMMIT;
-
 -- Table of worship history
 DROP TABLE IF EXISTS worshiphistory;
 CREATE TABLE worshiphistory AS
 (SELECT WorshipHistoryID,
         SongInstanceID,
-        WorshipHistoryDate,
-        WorshipSlotID
+        WorshipHistoryDate
  FROM wsf.worshiphistory
  WHERE DATABASE() = 'wsf_shiny_ctcc');
 COMMIT;
