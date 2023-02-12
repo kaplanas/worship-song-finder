@@ -26,4 +26,4 @@ If you want to run the Shiny app locally, you'll need:
 * All the code in this repository, except for [other_scripts](other_scripts)
 * Access to a MySQL database
   - Load the contents of [database_files/wsf_shiny.sql](database_files/wsf_shiny.sql) into a schema called `wsf_shiny`
-  - Edit [R_files/database_connection_local.R](database_connection_local.R) with your host, username, and password
+  - Edit [database_connection_local.R](database_connection_local.R) with your host, username, and password
