@@ -20,7 +20,7 @@ library(tibble)
 library(xml2)
 
 source("version.R", local = T)
-source("R_files/database_connection_local.R", local = T)
+source("database_connection_local.R", local = T)
 
 #### Useful initial settings ####
 
