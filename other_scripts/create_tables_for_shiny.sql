@@ -1,6 +1,6 @@
 -- Use a parameter to determine whether we're using filtered data
 -- or not.
-USE wsf_shiny_ctcc;
+USE wsf;
 SET group_concat_max_len = 150000;
 
 -- SONGBOOK ENTRY DATA --
@@ -11,9 +11,9 @@ CREATE TABLE songbooks AS
 (SELECT SongbookID,
         SongbookName,
         SongbookAbbreviation
- FROM wsf.songbooks
+ FROM wsdb.songbooks
  WHERE (IncludeInSearch = 'Y')
-       OR (DATABASE() = 'wsf_shiny_ctcc'));
+       OR (DATABASE() = 'wsf_ctcc'));
 COMMIT;
 
 -- SONG INSTANCE DATA --
@@ -56,12 +56,12 @@ CREATE TABLE songinstances_songbooks AS
                                       END,
                                       EntryNumber)
                      END) AS EntryStringNoName
-       FROM wsf.songinstances
-            JOIN wsf.songbookentries
+       FROM wsdb.songinstances
+            JOIN wsdb.songbookentries
             ON songinstances.SongInstanceID = songbookentries.SongInstanceID
             JOIN songbooks
             ON songbookentries.SongbookID = songbooks.SongbookID
-            LEFT JOIN wsf.songbookvolumes
+            LEFT JOIN wsdb.songbookvolumes
             ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID) s);
 COMMIT;
 
@@ -81,13 +81,13 @@ CREATE TABLE songinstances AS
         SongbookEntries,
         NumEntries,
         PrettyScriptureList AS ScriptureReferences
- FROM wsf.songinstances 
+ FROM wsdb.songinstances 
       LEFT JOIN (SELECT SongInstanceID,
                         MAX(CopyrightYear) AS LastLyricsYear,
                         GROUP_CONCAT(DISTINCT CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS LyricsCopyright
-                 FROM wsf.songinstances_lyrics
+                 FROM wsdb.songinstances_lyrics
                       JOIN (SELECT lyrics.LyricsID,
                                    CopyrightYear,
                                    GROUP_CONCAT(DISTINCT
@@ -96,10 +96,10 @@ CREATE TABLE songinstances AS
                                                 END
                                                 ORDER BY CopyrightHolderName
                                                 SEPARATOR ', ') AS CopyrightHolderNames
-                            FROM wsf.lyrics
-                                 JOIN wsf.lyrics_copyrightholders
+                            FROM wsdb.lyrics
+                                 JOIN wsdb.lyrics_copyrightholders
                                       ON lyrics.LyricsID = lyrics_copyrightholders.LyricsID
-                                 JOIN wsf.copyrightholders
+                                 JOIN wsdb.copyrightholders
                                       ON lyrics_copyrightholders.CopyrightHolderID = copyrightholders.CopyrightHolderID
                             GROUP BY lyrics.LyricsID,
                                      CopyrightYear) lyrics
@@ -111,7 +111,7 @@ CREATE TABLE songinstances AS
                         GROUP_CONCAT(DISTINCT CONCAT('© ', CopyrightYear, ' ', CopyrightHolderNames)
                                      ORDER BY CopyrightYear
                                      SEPARATOR '; ') AS TuneCopyright
-                 FROM wsf.songinstances_tunes
+                 FROM wsdb.songinstances_tunes
                       JOIN (SELECT tunes.TuneID,
                                    CopyrightYear,
                                    GROUP_CONCAT(DISTINCT
@@ -120,10 +120,10 @@ CREATE TABLE songinstances AS
                                                 END
                                                 ORDER BY CopyrightHolderName
                                                 SEPARATOR ', ') AS CopyrightHolderNames
-                            FROM wsf.tunes
-                                 JOIN wsf.tunes_copyrightholders
+                            FROM wsdb.tunes
+                                 JOIN wsdb.tunes_copyrightholders
                                       ON tunes.TuneID = tunes_copyrightholders.TuneID
-                                 JOIN wsf.copyrightholders
+                                 JOIN wsdb.copyrightholders
                                       ON tunes_copyrightholders.CopyrightHolderID = copyrightholders.CopyrightHolderID
                             GROUP BY tunes.TuneID,
                                      CopyrightYear) tunes
@@ -145,16 +145,16 @@ CREATE TABLE songinstances AS
                                            END
                                            ORDER BY CopyrightHolderName
                                            SEPARATOR ', ') AS CopyrightHolderNames
-                       FROM wsf.arrangements
-                            LEFT JOIN wsf.arrangements_copyrightholders
+                       FROM wsdb.arrangements
+                            LEFT JOIN wsdb.arrangements_copyrightholders
                             ON arrangements.ArrangementID = arrangements_copyrightholders.ArrangementID
-                            LEFT JOIN wsf.copyrightholders
+                            LEFT JOIN wsdb.copyrightholders
                             ON arrangements_copyrightholders.CopyrightHolderID = copyrightholders.CopyrightHolderID
                        GROUP BY arrangements.ArrangementID,
                                 CopyrightYear) a
-                      LEFT JOIN wsf.arrangements_arrangementtypes
+                      LEFT JOIN wsdb.arrangements_arrangementtypes
                       ON a.ArrangementId = arrangements_arrangementtypes.ArrangementID
-                      LEFT JOIN wsf.arrangementtypes
+                      LEFT JOIN wsdb.arrangementtypes
                       ON arrangements_arrangementtypes.ArrangementTypeID = arrangementtypes.ArrangementTypeID
                  GROUP BY a.ArrangementID) arrangements
       ON songinstances.ArrangementID = arrangements.ArrangementID
@@ -169,10 +169,10 @@ CREATE TABLE songinstances AS
       LEFT JOIN (SELECT DISTINCT SongInstanceID
                  FROM songinstances_songbooks) include_songinstance
       ON songinstances.SongInstanceID = include_songinstance.SongInstanceID
-      LEFT JOIN wsf.prettyscripturelists
+      LEFT JOIN wsdb.prettyscripturelists
       ON songinstances.SongInstanceID = prettyscripturelists.SongInstanceID
  WHERE include_songinstance.SongInstanceID IS NOT NULL
-       OR DATABASE() = 'wsf_shiny_ctcc');
+       OR DATABASE() = 'wsf_ctcc');
 COMMIT;
 
 -- Table of artists
@@ -186,8 +186,8 @@ CREATE TABLE artists AS
                END,
                LastName) AS ArtistName,
         GenderName
- FROM wsf.artists
-      LEFT JOIN wsf.genders
+ FROM wsdb.artists
+      LEFT JOIN wsdb.genders
       ON artists.GenderID = genders.GenderID);
 COMMIT;
 
@@ -202,23 +202,23 @@ INSERT INTO songinstances_artists
 (SELECT DISTINCT songinstances.SongInstanceID, SongID, ArtistID,
         'lyricist' AS Role
  FROM songinstances
-      JOIN wsf.songinstances_lyrics
+      JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      JOIN wsf.lyrics_artists
+      JOIN wsdb.lyrics_artists
       ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID);
 INSERT INTO songinstances_artists
 (SELECT DISTINCT songinstances.SongInstanceID, SongID, ArtistID,
         'composer' AS Role
  FROM songinstances
-      JOIN wsf.songinstances_tunes
+      JOIN wsdb.songinstances_tunes
       ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
-      JOIN wsf.tunes_artists
+      JOIN wsdb.tunes_artists
       ON songinstances_tunes.TuneID = tunes_artists.TuneID);
 INSERT INTO songinstances_artists
 (SELECT DISTINCT songinstances.SongInstanceID, SongID, ArtistID,
         'arranger' AS Role
  FROM songinstances
-      JOIN wsf.arrangements_artists
+      JOIN wsdb.arrangements_artists
       ON songinstances.ArrangementID = arrangements_artists.ArrangementID);
 COMMIT;
 
@@ -241,22 +241,22 @@ BEGIN
        	                 ORDER BY artists.LastName, artists.FirstName
        	                 SEPARATOR ', ') AS PrettyArtistString,
             TranslatedFromID
-     FROM wsf.lyrics_artists
+     FROM wsdb.lyrics_artists
           INNER JOIN artists
           ON lyrics_artists.ArtistID = artists.ArtistID
           LEFT JOIN (SELECT DISTINCT LyricsID
-                     FROM wsf.songinstances_lyrics
+                     FROM wsdb.songinstances_lyrics
                           JOIN songinstances
                           ON songinstances_lyrics.SongInstanceID = songinstances.SongInstanceID) lyrics_in_song
           ON lyrics_artists.LyricsID = lyrics_in_song.LyricsID
           LEFT JOIN (SELECT DISTINCT LyricsID
-                     FROM wsf.metricalpsalms_lyrics) lyrics_in_metrical_psalm
+                     FROM wsdb.metricalpsalms_lyrics) lyrics_in_metrical_psalm
           ON lyrics_artists.LyricsID = lyrics_in_metrical_psalm.LyricsID
-          LEFT JOIN wsf.lyrics_translations
+          LEFT JOIN wsdb.lyrics_translations
           ON lyrics_artists.LyricsID = lyrics_translations.LyricsID
      WHERE lyrics_in_song.LyricsID IS NOT NULL
            OR lyrics_in_metrical_psalm.LyricsID IS NOT NULL
-           OR DATABASE() = 'wsf_shiny_ctcc'
+           OR DATABASE() = 'wsf_ctcc'
      GROUP BY lyrics_artists.LyricsID);
      
      SELECT COUNT(*)
@@ -270,21 +270,21 @@ BEGIN
          (SELECT DISTINCT songinstances.SongInstanceID, SongID,
                  la.ArtistID, 'lyricist' AS Role
           FROM songinstances
-               INNER JOIN wsf.songinstances_lyrics
+               INNER JOIN wsdb.songinstances_lyrics
                ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
                INNER JOIN lyrics_artists
                ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID
                INNER JOIN lyrics_artists translations
                ON lyrics_artists.TranslatedFromID = translations.LyricsID
-               INNER JOIN wsf.lyrics_artists la
+               INNER JOIN wsdb.lyrics_artists la
                ON translations.LyricsID = la.LyricsID);
          
          UPDATE lyrics_artists
-                LEFT JOIN wsf.lyrics l1
+                LEFT JOIN wsdb.lyrics l1
                 ON lyrics_artists.LyricsID = l1.LyricsID
                 LEFT JOIN lyrics_artists la2
                 ON lyrics_artists.TranslatedFromID = la2.LyricsID
-                LEFT JOIN wsf.lyrics l2
+                LEFT JOIN wsdb.lyrics l2
                 ON la2.LyricsID = l2.LyricsID
          SET lyrics_artists.PrettyArtistString = CONCAT(la2.OriginalPrettyArtistString,
                                                         CASE WHEN l1.LanguageID = l2.LanguageID
@@ -318,7 +318,7 @@ SET SQL_SAFE_UPDATES = 0;
 DELETE FROM artists
 WHERE ArtistID NOT IN (SELECT ArtistID
                        FROM songinstances_artists)
-      AND DATABASE() <> 'wsf_shiny_ctcc';
+      AND DATABASE() <> 'wsf_ctcc';
 SET SQL_SAFE_UPDATES = 1;
 COMMIT;
 
@@ -328,9 +328,9 @@ CREATE TABLE songinstances_scripturereferences AS
 (SELECT DISTINCT songinstances.SongInstanceID, SongID,
         ScriptureReferenceID
  FROM songinstances
-      JOIN wsf.songinstances_lyrics
+      JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      JOIN wsf.lyrics_scripturereferences
+      JOIN wsdb.lyrics_scripturereferences
       ON songinstances_lyrics.LyricsID = lyrics_scripturereferences.LyricsID);
 COMMIT;
 
@@ -340,7 +340,7 @@ CREATE TABLE bible_books AS
 (SELECT BookID,
         BookName,
         BookAbbreviation
- FROM wsf.booksofthebible);
+ FROM wsdb.booksofthebible);
 COMMIT;
 
 -- Table of scripture references
@@ -352,8 +352,8 @@ CREATE TABLE scripturereferences AS
         BookAbbreviation,
         Chapter,
         Verse
- FROM wsf.scripturereferences
-      JOIN wsf.booksofthebible
+ FROM wsdb.scripturereferences
+      JOIN wsdb.booksofthebible
       ON scripturereferences.BookID = booksofthebible.BookID
       JOIN (SELECT DISTINCT ScriptureReferenceID
             FROM songinstances_scripturereferences) include_scripturereference
@@ -366,9 +366,9 @@ CREATE TABLE songinstances_languages AS
 (SELECT DISTINCT songinstances.SongInstanceID,
         SongID, LanguageID
  FROM songinstances
-      JOIN wsf.songinstances_lyrics
+      JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      JOIN wsf.lyrics
+      JOIN wsdb.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID);
 COMMIT;
 
@@ -377,7 +377,7 @@ DROP TABLE IF EXISTS languages;
 CREATE TABLE languages AS
 (SELECT languages.LanguageID,
         LanguageName
- FROM wsf.languages
+ FROM wsdb.languages
       JOIN (SELECT DISTINCT LanguageID
             FROM songinstances_languages) include_language
       ON languages.LanguageID = include_language.LanguageID);
@@ -390,7 +390,7 @@ CREATE TABLE songinstances_arrangementtypes AS
         SongID,
         ArrangementTypeID
  FROM songinstances
-      JOIN wsf.arrangements_arrangementtypes
+      JOIN wsdb.arrangements_arrangementtypes
       ON songinstances.ArrangementID = arrangements_arrangementtypes.ArrangementID);
 COMMIT;
 
@@ -399,7 +399,7 @@ DROP TABLE IF EXISTS arrangementtypes;
 CREATE TABLE arrangementtypes AS
 (SELECT arrangementtypes.ArrangementTypeID,
         ArrangementType
- FROM wsf.arrangementtypes
+ FROM wsdb.arrangementtypes
       LEFT JOIN (SELECT DISTINCT ArrangementTypeID
                  FROM songinstances_arrangementtypes) include_arrangementtype
       ON arrangementtypes.ArrangementTypeID = include_arrangementtype.ArrangementTypeID);
@@ -411,7 +411,7 @@ CREATE TABLE songinstances_keysignatures AS
 (SELECT songinstances.SongInstanceID,
         SongID, KeySignatureID
  FROM songinstances
-      JOIN wsf.songinstances_keysignatures
+      JOIN wsdb.songinstances_keysignatures
       ON songinstances.SongInstanceID = songinstances_keysignatures.SongInstanceID);
 COMMIT;
 
@@ -432,12 +432,12 @@ CREATE TABLE keysignatures AS
                     WHEN modes.ModeID = 2 THEN 'm'
                     ELSE CONCAT(' ', ModeName)
                END) AS KeySignatureString
- FROM wsf.keysignatures
-      JOIN wsf.pitches
+ FROM wsdb.keysignatures
+      JOIN wsdb.pitches
       ON keysignatures.PitchID = pitches.PitchID
-      JOIN wsf.accidentals
+      JOIN wsdb.accidentals
       ON keysignatures.AccidentalID = accidentals.AccidentalID
-      JOIN wsf.modes
+      JOIN wsdb.modes
       ON keysignatures.ModeID = modes.ModeID
       JOIN (SELECT DISTINCT KeySignatureID
             FROM songinstances_keysignatures) include_keysignature
@@ -451,7 +451,7 @@ CREATE TABLE songinstances_timesignatures AS
         SongID,
         TimeSignatureID
  FROM songinstances
-      JOIN wsf.songinstances_timesignatures
+      JOIN wsdb.songinstances_timesignatures
       ON songinstances.SongInstanceID = songinstances_timesignatures.SongInstanceID);
 COMMIT;
 
@@ -463,7 +463,7 @@ CREATE TABLE timesignatures AS
         TimeSignatureMeasure,
         CONCAT(TimeSignatureBeat, '/',
                TimeSignatureMeasure) AS TimeSignatureString
- FROM wsf.timesignatures
+ FROM wsdb.timesignatures
       JOIN (SELECT DISTINCT TimeSignatureID
             FROM songinstances_timesignatures) include_timesignature
       ON timesignatures.TimeSignatureID = include_timesignature.TimeSignatureID);
@@ -474,16 +474,16 @@ DROP TABLE IF EXISTS songinstances_meters;
 CREATE TABLE songinstances_meters AS
 (SELECT songinstances.SongInstanceID, SongID, MeterID
  FROM songinstances
-      JOIN wsf.songinstances_lyrics
+      JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      JOIN wsf.lyrics_meters
+      JOIN wsdb.lyrics_meters
       ON songinstances_lyrics.LyricsID = lyrics_meters.LyricsID
  UNION DISTINCT
  SELECT songinstances.SongInstanceID, SongID, MeterID
  FROM songinstances
-      JOIN wsf.songinstances_tunes
+      JOIN wsdb.songinstances_tunes
       ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
-      JOIN wsf.tunes_meters
+      JOIN wsdb.tunes_meters
       ON songinstances_tunes.TuneID = tunes_meters.TuneID);
 COMMIT;
 
@@ -497,7 +497,7 @@ CREATE TABLE meters AS
                CASE WHEN Multiplier IS NULL THEN ''
                     ELSE CONCAT(' ', Multiplier)
                END) AS MeterString
- FROM wsf.meters
+ FROM wsdb.meters
       JOIN (SELECT DISTINCT MeterID
             FROM songinstances_meters) include_meter
       ON meters.MeterID = include_meter.MeterID);
@@ -508,7 +508,7 @@ DROP TABLE IF EXISTS songinstances_tunes;
 CREATE TABLE songinstances_tunes AS
 (SELECT songinstances.SongInstanceID, SongID, TuneID
  FROM songinstances
-      JOIN wsf.songinstances_tunes
+      JOIN wsdb.songinstances_tunes
       ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID);
 COMMIT;
 
@@ -518,7 +518,7 @@ CREATE TABLE tunes AS
 (SELECT tunes.TuneID,
         TuneName,
         RealTuneName
- FROM wsf.tunes
+ FROM wsdb.tunes
       JOIN (SELECT DISTINCT TuneID
             FROM songinstances_tunes) include_tune
       ON tunes.TuneID = include_tune.TuneID);
@@ -532,9 +532,9 @@ CREATE TABLE lyrics_first_lines AS
         1 AS FirstLineOrder,
         lyrics.LyricsID
  FROM songinstances
-      INNER JOIN wsf.songinstances_lyrics
+      INNER JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      INNER JOIN wsf.lyrics
+      INNER JOIN wsdb.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID
  UNION ALL
  SELECT songinstances.SongInstanceID,
@@ -542,9 +542,9 @@ CREATE TABLE lyrics_first_lines AS
         2 AS FirstLineOrder,
         lyrics.LyricsID
  FROM songinstances
-      INNER JOIN wsf.songinstances_lyrics
+      INNER JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      INNER JOIN wsf.lyrics
+      INNER JOIN wsdb.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID
  WHERE lyrics.RefrainFirstLine IS NOT NULL
        AND lyrics.RefrainFirstLine <> '');
@@ -565,7 +565,7 @@ UPDATE songinstances
                          GROUP_CONCAT(DISTINCT TuneName
                                       ORDER BY TuneName
                                       SEPARATOR ', ') AS Tunes
-                  FROM wsf.songinstances_tunes
+                  FROM wsdb.songinstances_tunes
                        INNER JOIN tunes
                        ON songinstances_tunes.TuneID = tunes.TuneID
                   WHERE tunes.RealTuneName = 1
@@ -574,7 +574,7 @@ UPDATE songinstances
        LEFT JOIN (SELECT SongInstanceID,
                          GROUP_CONCAT(DISTINCT PrettyArtistString
                                       SEPARATOR ', ') AS Lyricists
-                  FROM wsf.songinstances_lyrics
+                  FROM wsdb.songinstances_lyrics
                        INNER JOIN lyrics_artists
                        ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID
                   GROUP BY SongInstanceID) lyricists
@@ -603,7 +603,7 @@ UPDATE songinstances
                          GROUP_CONCAT(DISTINCT KeySignatureString
                                       ORDER BY PitchName, AccidentalID, ModeID
                                       SEPARATOR ', ') AS KeySignatures
-                  FROM wsf.songinstances_keysignatures
+                  FROM wsdb.songinstances_keysignatures
                        INNER JOIN keysignatures
                        ON songinstances_keysignatures.KeySignatureID = keysignatures.KeySignatureID
                   GROUP BY SongInstanceID) keysignatures
@@ -612,7 +612,7 @@ UPDATE songinstances
                          GROUP_CONCAT(DISTINCT TimeSignatureString
                                       ORDER BY TimeSignatureMeasure, TimeSignatureBeat
                                       SEPARATOR ', ') AS TimeSignatures
-                  FROM wsf.songinstances_timesignatures
+                  FROM wsdb.songinstances_timesignatures
                        INNER JOIN timesignatures
                        ON songinstances_timesignatures.TimeSignatureID = timesignatures.TimeSignatureID
                   GROUP BY SongInstanceID) timesignatures
@@ -724,7 +724,7 @@ INSERT INTO songs
                         THEN songs.SongDisambiguator
                    ELSE ''
               END AS SongDisambiguator
-       FROM wsf.songs
+       FROM wsdb.songs
             INNER JOIN (SELECT DISTINCT SongID
                         FROM songinstances) si
             ON songs.SongID = si.SongID) songs
@@ -733,7 +733,7 @@ INSERT INTO songs
                                      ORDER BY SongInstance
                                      SEPARATOR '<br/>') AS OtherTitles
                  FROM wsf_shiny.songinstances
-                      INNER JOIN wsf.songs
+                      INNER JOIN wsdb.songs
                       ON songinstances.SongID = songs.SongID
                  WHERE LOWER(SongInstance) <> SUBSTRING(LOWER(songs.SongName), 1, LENGTH(SongInstance))
                  GROUP BY songs.SongID) songinstances
@@ -746,10 +746,10 @@ INSERT INTO songs
                               CASE WHEN MAX(CopyrightHolderID) = 1 THEN 'N'
                                    ELSE 'Y'
                               END AS AnyCopyrighted
-                       FROM wsf.songinstances
-                            INNER JOIN wsf.songinstances_lyrics
+                       FROM wsdb.songinstances
+                            INNER JOIN wsdb.songinstances_lyrics
                             ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-                            INNER JOIN wsf.lyrics_copyrightholders
+                            INNER JOIN wsdb.lyrics_copyrightholders
                             ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
                        GROUP BY songinstances.SongInstanceID, songinstances.SongID) copyrighted_songinstances
                  GROUP BY SongID) copyrighted_songs
@@ -768,7 +768,7 @@ DROP TABLE IF EXISTS songs_topics;
 CREATE TABLE songs_topics AS
 (SELECT songs.SongID, TopicID
  FROM songs
-      INNER JOIN wsf.songs_topics
+      INNER JOIN wsdb.songs_topics
       ON songs.SongID = songs_topics.SongID);
 COMMIT;
 
@@ -777,7 +777,7 @@ DROP TABLE IF EXISTS topics;
 CREATE TABLE topics AS
 (SELECT topics.TopicID,
         TopicName
- FROM wsf.topics
+ FROM wsdb.topics
       JOIN (SELECT DISTINCT TopicID
             FROM songs_topics) include_topic
       ON topics.TopicID = include_topic.TopicID);
@@ -793,7 +793,7 @@ UPDATE songs
                                       ORDER BY TopicName
                                       SEPARATOR ', ') Topics
                   FROM songs_topics
-                       INNER JOIN wsf.topics
+                       INNER JOIN wsdb.topics
                        ON songs_topics.TopicID = topics.TopicID
                   GROUP BY SongID) topics
        ON songs.SongID = topics.SongID
@@ -832,8 +832,8 @@ CREATE TABLE worshiphistory AS
 (SELECT WorshipHistoryID,
         SongInstanceID,
         WorshipHistoryDate
- FROM wsf.worshiphistory
- WHERE DATABASE() = 'wsf_shiny_ctcc');
+ FROM wsdb.worshiphistory
+ WHERE DATABASE() = 'wsf_ctcc');
 COMMIT;
 
 -- PSALM SONG DATA --
@@ -844,8 +844,8 @@ CREATE TABLE metricalpsalms AS
 (SELECT metricalpsalms.MetricalPsalmID,
         metricalpsalms.PsalmNumber,
         metricalpsalms_prettyscripturelists.PrettyScriptureList
- FROM wsf.metricalpsalms
-      LEFT JOIN wsf.metricalpsalms_prettyscripturelists
+ FROM wsdb.metricalpsalms
+      LEFT JOIN wsdb.metricalpsalms_prettyscripturelists
       ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID);
 COMMIT;
 
@@ -865,19 +865,19 @@ INSERT INTO psalmsongs_lyrics
         ROW_NUMBER() OVER (PARTITION BY psalmsongs.PsalmSongID,
                                         songinstances.SongInstanceID
                            ORDER BY lyrics.LyricsID) AS LyricsOrder
- FROM wsf.psalmsongs
-      INNER JOIN wsf.songinstances
+ FROM wsdb.psalmsongs
+      INNER JOIN wsdb.songinstances
       ON psalmsongs.SongID = songinstances.SongID
-      INNER JOIN wsf.songinstances_lyrics
+      INNER JOIN wsdb.songinstances_lyrics
       ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-      INNER JOIN wsf.lyrics
+      INNER JOIN wsdb.lyrics
       ON songinstances_lyrics.LyricsID = lyrics.LyricsID
       LEFT JOIN (SELECT LyricsID,
                         CASE WHEN MIN(CopyrightHolderID) = 1
                                   THEN 'Y'
                              ELSE 'N'
                         END AS PublicDomain
-                 FROM wsf.lyrics_copyrightholders
+                 FROM wsdb.lyrics_copyrightholders
                  GROUP BY LyricsID) public_domain
       ON songinstances_lyrics.LyricsID = public_domain.LyricsID
       INNER JOIN songs
@@ -888,32 +888,32 @@ INSERT INTO psalmsongs_lyrics
         COALESCE(public_domain.PublicDomain, 'N') AS PublicDomain,
         ROW_NUMBER() OVER (PARTITION BY metricalpsalms.MetricalPsalmID
                            ORDER BY AvgVerse) AS LyricsOrder
- FROM wsf.metricalpsalms
-      INNER JOIN wsf.metricalpsalms_lyrics
+ FROM wsdb.metricalpsalms
+      INNER JOIN wsdb.metricalpsalms_lyrics
       ON metricalpsalms.MetricalPsalmID = metricalpsalms_lyrics.MetricalPsalmID
-      INNER JOIN wsf.lyrics
+      INNER JOIN wsdb.lyrics
       ON metricalpsalms_lyrics.LyricsID = lyrics.LyricsID
       LEFT JOIN (SELECT LyricsID,
                         CASE WHEN MIN(CopyrightHolderID) = 1
                                   THEN 'Y'
                              ELSE 'N'
                         END AS PublicDomain
-                 FROM wsf.lyrics_copyrightholders
+                 FROM wsdb.lyrics_copyrightholders
                  GROUP BY LyricsID) public_domain
       ON lyrics.LyricsID = public_domain.LyricsID
       LEFT JOIN (SELECT lyrics_scripturereferences.LyricsID,
                         AVG(Verse) AS AvgVerse
-                 FROM wsf.lyrics_scripturereferences
-                      INNER JOIN wsf.scripturereferences
+                 FROM wsdb.lyrics_scripturereferences
+                      INNER JOIN wsdb.scripturereferences
                       ON lyrics_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID
                  GROUP BY LyricsID) avg_verse
       ON metricalpsalms_lyrics.LyricsID = avg_verse.LyricsID
  WHERE metricalpsalms_lyrics.LyricsID NOT IN
        (SELECT LyricsID
-        FROM wsf.songinstances_lyrics
-             INNER JOIN wsf.songinstances
+        FROM wsdb.songinstances_lyrics
+             INNER JOIN wsdb.songinstances
              ON songinstances_lyrics.SongInstanceID = songinstances.SongInstanceID
-             INNER JOIN wsf.psalmsongs
+             INNER JOIN wsdb.psalmsongs
              ON songinstances.SongID = psalmsongs.SongID));
 COMMIT;
 
@@ -929,9 +929,9 @@ CREATE TABLE psalmsongs_lyrics_tabs AS
                      ORDER BY LyricsOrder
                      SEPARATOR ' ') AS FullLyrics
  FROM psalmsongs_lyrics
-      INNER JOIN wsf.languages
+      INNER JOIN wsdb.languages
       ON psalmsongs_lyrics.LanguageID = languages.LanguageID
-      INNER JOIN wsf.all_lyrics
+      INNER JOIN wsdb.all_lyrics
       ON psalmsongs_lyrics.LyricsID = all_lyrics.LyricsID
  WHERE PublicDomain = 'Y'
  GROUP BY PsalmSongID, 2);
@@ -976,12 +976,12 @@ INSERT INTO psalmsongs
                          THEN CONCAT('<p>', firstlines.FirstLines, '</p>')
                     ELSE ''
                END) AS HTMLInfo
- FROM wsf.psalmsongs
-      JOIN wsf.psalmsongtypes
+ FROM wsdb.psalmsongs
+      JOIN wsdb.psalmsongtypes
       ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
       JOIN songs
       ON psalmsongs.SongID = songs.SongID
-      LEFT JOIN wsf.psalmsongs_prettyscripturelists
+      LEFT JOIN wsdb.psalmsongs_prettyscripturelists
       ON psalmsongs.PsalmSongID = psalmsongs_prettyscripturelists.PsalmSongID
       LEFT JOIN (SELECT SongID,
                         CASE WHEN Lyricists = Composers
@@ -1031,20 +1031,20 @@ INSERT INTO psalmsongs
                          THEN CONCAT('<p>', artists.Artists, '</p>')
                END,
                '<p>', firstlines.FirstLines, '</p>') AS HTMLInfo
- FROM wsf.metricalpsalms
+ FROM wsdb.metricalpsalms
       INNER JOIN (SELECT PsalmSongID, FirstLine
                   FROM psalmsongs_lyrics
                   WHERE LyricsOrder = 1) not_psalmsongs
       ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = not_psalmsongs.PsalmSongID
-	  LEFT JOIN wsf.metricalpsalms_prettyscripturelists
+	  LEFT JOIN wsdb.metricalpsalms_prettyscripturelists
       ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID
       LEFT JOIN (SELECT MetricalPsalmID,
                         CONCAT('Lyrics: ',
                                GROUP_CONCAT(DISTINCT ArtistName
                                             ORDER BY LastName, FirstName
                                             SEPARATOR ', ')) AS Artists
-                 FROM wsf.metricalpsalms_lyrics
-                      INNER JOIN wsf.lyrics_artists
+                 FROM wsdb.metricalpsalms_lyrics
+                      INNER JOIN wsdb.lyrics_artists
                       ON metricalpsalms_lyrics.LyricsID = lyrics_artists.LyricsID
                       INNER JOIN artists
                       ON lyrics_artists.ArtistID = artists.ArtistID
@@ -1073,7 +1073,7 @@ COMMIT;
 DROP TABLE IF EXISTS psalmsongtypes;
 CREATE TABLE psalmsongtypes AS
 (SELECT PsalmSongTypeID, PsalmSongType
- FROM wsf.psalmsongtypes);
+ FROM wsdb.psalmsongtypes);
 COMMIT;
 
 -- Table that connects psalm songs and alternative tunes
@@ -1105,22 +1105,22 @@ INSERT INTO psalmsongs_alternativetunes
                                '"')),
                 '#L#', CONCAT('"', PsalmSongTitle, '"')) AS Notes
  FROM psalmsongs
-      INNER JOIN wsf.alternativetunes
+      INNER JOIN wsdb.alternativetunes
       ON psalmsongs.SongOrMetricalPsalmID = alternativetunes.SongOrMetricalPsalmID
-      INNER JOIN wsf.tunes
+      INNER JOIN wsdb.tunes
       ON alternativetunes.TuneID = tunes.TuneID
-      INNER JOIN wsf.tunes_copyrightholders
+      INNER JOIN wsdb.tunes_copyrightholders
       ON tunes.TuneID = tunes_copyrightholders.TuneID
          AND tunes_copyrightholders.CopyrightHolderID = 1
       LEFT JOIN songs
       ON psalmsongs.SongID = songs.SongID
          AND songs.Copyrighted = 'Y'
       LEFT JOIN (SELECT TuneID, MAX(SongID) AS SongID
-                 FROM wsf.tunes_canonicalsongs
+                 FROM wsdb.tunes_canonicalsongs
                  GROUP BY TuneID
                  HAVING COUNT(*) = 1) one_canonical_song
       ON tunes.TuneID = one_canonical_song.TuneID
-      LEFT JOIN wsf.songs canonical_song
+      LEFT JOIN wsdb.songs canonical_song
       ON one_canonical_song.SongID = canonical_song.SongID
  WHERE songs.SongID IS NULL
 );
@@ -1155,7 +1155,7 @@ UPDATE psalmsongs
                                          GROUP_CONCAT(DISTINCT EntryString
                                                       ORDER BY SongbookName, EntryNumber
                                                       SEPARATOR ', ') AS TuneEntries
-                                  FROM wsf.songinstances_tunes
+                                  FROM wsdb.songinstances_tunes
                                        INNER JOIN songinstances_songbooks
                                        ON songinstances_tunes.SongInstanceID = songinstances_songbooks.SongInstanceID
                                   GROUP BY TuneID) tuneentries

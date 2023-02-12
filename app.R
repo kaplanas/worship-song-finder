@@ -26,8 +26,8 @@ source("database_connection_local.R", local = T)
 
 # Connect to the database
 wsf.shiny.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                          dbname = ifelse(version == "ctcc", "wsf_shiny_ctcc",
-                                          "wsf_shiny"),
+                          dbname = ifelse(version == "ctcc", "wsf_ctcc",
+                                          "wsf"),
                           host = db.host, port = 3306)
 on.exit(dbDisconnect(wsf.shiny.con), add = T)
 dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
