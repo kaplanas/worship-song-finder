@@ -1,6 +1,6 @@
 -- Use a parameter to determine whether we're using filtered data
 -- or not.
-USE wsf;
+USE wsf_ctcc;
 SET group_concat_max_len = 150000;
 
 -- SONGBOOK ENTRY DATA --
@@ -12,7 +12,7 @@ CREATE TABLE songbooks AS
         SongbookName,
         SongbookAbbreviation
  FROM wsdb.songbooks
- WHERE (IncludeInSearch = 'Y')
+ WHERE (IncludeInSearch)
        OR (DATABASE() = 'wsf_ctcc'));
 COMMIT;
 
@@ -257,7 +257,7 @@ BEGIN
      WHERE lyrics_in_song.LyricsID IS NOT NULL
            OR lyrics_in_metrical_psalm.LyricsID IS NOT NULL
            OR DATABASE() = 'wsf_ctcc'
-     GROUP BY lyrics_artists.LyricsID);
+     GROUP BY lyrics_artists.LyricsID, TranslatedFromID);
      
      SELECT COUNT(*)
      INTO numTranslations
@@ -732,7 +732,7 @@ INSERT INTO songs
                         GROUP_CONCAT(DISTINCT CONCAT('<i>', SongInstance, '</i>')
                                      ORDER BY SongInstance
                                      SEPARATOR '<br/>') AS OtherTitles
-                 FROM wsf_shiny.songinstances
+                 FROM songinstances
                       INNER JOIN wsdb.songs
                       ON songinstances.SongID = songs.SongID
                  WHERE LOWER(SongInstance) <> SUBSTRING(LOWER(songs.SongName), 1, LENGTH(SongInstance))
@@ -831,9 +831,10 @@ DROP TABLE IF EXISTS worshiphistory;
 CREATE TABLE worshiphistory AS
 (SELECT WorshipHistoryID,
         SongInstanceID,
-        WorshipHistoryDate
- FROM wsdb.worshiphistory
- WHERE DATABASE() = 'wsf_ctcc');
+        WorshipDate AS WorshipHistoryDate
+ FROM och.worshiphistory
+ WHERE CongregationID = 1
+       AND DATABASE() = 'wsf_ctcc');
 COMMIT;
 
 -- PSALM SONG DATA --
@@ -925,14 +926,14 @@ CREATE TABLE psalmsongs_lyrics_tabs AS
                CASE WHEN languages.LanguageID = 1 THEN ''
                     ELSE CONCAT(' (', LanguageName, ')')
                END) AS TabName,
-        GROUP_CONCAT(FullLyrics
+        GROUP_CONCAT(LyricsHTML
                      ORDER BY LyricsOrder
-                     SEPARATOR ' ') AS FullLyrics
+                     SEPARATOR ' ') AS LyricsHTML
  FROM psalmsongs_lyrics
       INNER JOIN wsdb.languages
       ON psalmsongs_lyrics.LanguageID = languages.LanguageID
-      INNER JOIN wsdb.all_lyrics
-      ON psalmsongs_lyrics.LyricsID = all_lyrics.LyricsID
+      INNER JOIN wsdb.lyrics
+      ON psalmsongs_lyrics.LyricsID = lyrics.LyricsID
  WHERE PublicDomain = 'Y'
  GROUP BY PsalmSongID, 2);
 COMMIT;

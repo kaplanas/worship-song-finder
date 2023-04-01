@@ -311,11 +311,11 @@ Encoding(psalm.songs.df$html.info) = "UTF-8"
 Encoding(psalm.songs.df$html.alternatives) = "UTF-8"
 
 # Get table that connecs psalm songs and lyrics
-psalm.songs.lyrics.sql = "SELECT PsalmSongID, TabName, FullLyrics
+psalm.songs.lyrics.sql = "SELECT PsalmSongID, TabName, LyricsHTML
                           FROM psalmsongs_lyrics_tabs"
 psalm.songs.lyrics.df = dbGetQuery(wsf.shiny.con, psalm.songs.lyrics.sql) %>%
   dplyr::select(psalm.song.id = PsalmSongID, tab.name = TabName,
-                full.lyrics = FullLyrics)
+                full.lyrics = LyricsHTML)
 Encoding(psalm.songs.lyrics.df$tab.name) = "UTF-8"
 Encoding(psalm.songs.lyrics.df$full.lyrics) = "UTF-8"
 

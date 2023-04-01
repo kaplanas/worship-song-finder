@@ -450,7 +450,10 @@ output$psalmSongList = renderUI({
   temp.panels = do.call(navlistPanel, psalm.song.panels)
   # Assign classes based on the psalm song type (so css can assign colors)
   for(i in 1:nrow(psalm.song.results.df)) {
-    current.class = temp.panels$children[[1]][[1]]$children[[1]]$children[[1]][[i]]$attribs$class
+    current.class = NULL
+    if("class" %in% names(temp.panels$children[[1]]$children[[1]]$children[[i]]$attribs)) {
+      current.class = temp.panels$children[[1]]$children[[1]]$children[[i]]$attribs$class
+    }
     new.class = paste("psalmsongtype",
                       coalesce(psalm.song.results.df$psalm.song.type.id[i],
                                as.integer(0)),
@@ -460,7 +463,7 @@ output$psalmSongList = renderUI({
     } else {
       current.class = paste(current.class, new.class, sep = " ")
     }
-    temp.panels$children[[1]][[1]]$children[[1]]$children[[1]][[i]]$attribs$class = current.class
+    temp.panels$children[[1]]$children[[1]]$children[[i]]$attribs$class = current.class
   }
   temp.panels
 })
