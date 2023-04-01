@@ -275,14 +275,15 @@ Encoding(songbook.overlap.df$songbook.name.2) = "UTF-8"
 # Get table of worship history
 if(version == "ctcc") {
   worship.history.sql = "SELECT WorshipHistoryID, SongInstanceID,
-                                WorshipHistoryDate
-                         FROM worshiphistory"
+                                WorshipDate AS WorshipHistoryDate
+                         FROM och.worshiphistory
+                         WHERE CongregationID = 1"
   worship.history.df = dbGetQuery(wsf.shiny.con, worship.history.sql) %>%
     dplyr::select(worship.history.id = WorshipHistoryID,
                   song.instance.id = SongInstanceID,
                   worship.history.date = WorshipHistoryDate)
   worship.history.df$worship.history.date = as.Date(worship.history.df$worship.history.date,
-                                                    format = "%m/%d/%Y")
+                                                    format = "%Y-%m-%d")
   worship.history.df = filter(worship.history.df,
                               format(worship.history.df$worship.history.date, "%Y") >= 2017)
 }
